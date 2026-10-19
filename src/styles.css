@@ -451,3 +451,6 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 @media (max-width:700px){
   .sheet input,.sheet select,.sheet textarea,.qadd,.cm-name,.gname.cname,.mg-name{font-size:16px!important}
 }
+.mg-sec{transition:box-shadow .3s}
+.mg-sec.hl{box-shadow:0 0 0 2px var(--c)}
+.sheet.ed .mgr{display:grid;gap:12px}

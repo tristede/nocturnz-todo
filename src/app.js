@@ -299,18 +299,19 @@ export function startApp(store, data, root){
   // Reporter : nouvelle date (ou « plus tard » sans date, en Pas pressé), sort du focus, garde une trace (date + raison).
   // Mise à jour d'une tâche (bouton ✎) : reformuler, noter, reporter (avec ou sans date). Chaque enregistrement laisse une trace dans le journal.
   function isRep(r){return r.k?r.k==='rep':true;}
-  function openRep(id){var x=find(id);if(!x)return;sh={kind:'rep',id:id,text:x.t.t,why:'',when:'',date:''};renderRep(true);}
+  function openRep(id){var x=find(id);if(!x)return;sh={kind:'rep',id:id,text:x.t.t,why:'',when:'',date:'',p:foreign(x.t)?'keep':x.t.p};renderRep(true);}
+  // Fiche ✎ : reformuler, changer le tag, noter où on en est, reporter
   function renderRep(first){
-    var t=find(sh.id).t,today=dayKey();
+    var t=find(sh.id).t;
     function ch(v,l){return '<button type="button" class="chipb" data-rp="'+v+'" aria-pressed="'+(sh.when===v)+'">'+l+'</button>';}
-    sheetRoot.innerHTML=wrap('Mettre à jour',
-      '<textarea id="rp-text" aria-label="Tâche">'+esc(sh.text)+'</textarea>'+
-      '<div class="field"><label class="lbl" for="rp-why">Note (optionnel)</label><input type="text" id="rp-why" value="'+esc(sh.why)+'" placeholder="où j’en suis, pourquoi je reporte…"></div>'+
-      '<div class="field"><span class="lbl">Reporter</span><div class="chips">'+ch('','Non')+ch('nodate','Sans date')+ch('1','Demain')+ch('3','Dans 3 jours')+ch('mon','Lundi prochain')+
-        '<input type="date" id="rp-date" value="'+esc(sh.when==='date'?sh.date:'')+'" aria-label="Autre date"></div></div>'+
+    sheetRoot.innerHTML=edSheet('Mettre à jour',
+      '<textarea id="rp-text" class="ed-text" rows="2" aria-label="Tâche">'+esc(sh.text)+'</textarea>'+
+      '<section class="sec"><h4 class="sec-h">Tag</h4>'+tagChips('todo','rp-p',sh.p)+'</section>'+
+      '<div class="set"><label class="row" for="rp-why"><span class="rk">Note</span><input type="text" id="rp-why" class="rowin right" value="'+esc(sh.why)+'" placeholder="où j’en suis…"></label></div>'+
+      '<section class="sec"><h4 class="sec-h">Reporter</h4><div class="chipscroll">'+ch('','Non')+ch('nodate','Sans date')+ch('1','Demain')+ch('3','Dans 3 jours')+ch('mon','Lundi prochain')+
+        '<label class="chipb datechip" aria-pressed="'+(sh.when==='date')+'">'+(sh.when==='date'&&sh.date?fdate(sh.date):'Autre date…')+'<input type="date" id="rp-date" value="'+esc(sh.when==='date'?sh.date:'')+'" aria-label="Choisir une date"></label></div></section>'+
       histHtml(t)+
-      '<div class="actions"><span class="spacer"></span><button type="button" class="btn ghost" data-close>Annuler</button><button type="button" class="btn" data-rp-save>Enregistrer</button></div>');
-    if(first){var w=sheetRoot.querySelector('#rp-text');if(w){w.focus();w.setSelectionRange(w.value.length,w.value.length);}}
+      '<div class="ed-foot"><button type="button" class="tbtn" data-rp-full>Tout modifier</button><span class="spacer"></span><button type="button" class="btn" data-rp-save>Enregistrer</button></div>');
   }
   function syncRep(){var q=function(id){var e=sheetRoot.querySelector(id);return e?e.value:'';};sh.text=q('#rp-text');sh.why=q('#rp-why');var d=q('#rp-date');if(d){sh.date=d;sh.when='date';}}
   function saveRep(){
@@ -322,6 +323,7 @@ export function startApp(store, data, root){
     else if(w==='date'&&sh.date)to=sh.date;
     if(to)t.due=to;
     if(w){var fi=S.focus.indexOf(t.id);if(fi>=0)S.focus.splice(fi,1);}
+    if(sh.p!=='keep'&&(sh.p!==t.p||foreign(t))){t.p=sh.p;mark(t);}
     if(w||why||t.t!==before)(t.rep=t.rep||[]).push({on:today,k:w?'rep':'note',to:to,why:why});
     closeSheet();change();
   }
@@ -375,10 +377,13 @@ export function startApp(store, data, root){
   function nudge(msg){var t=sheetRoot.querySelector('#sh-text');if(t){t.placeholder=msg;t.focus();}}
 
   /* ---------- Gérer les catégories (todo ou achats) ---------- */
-  function openManage(){
+  // focusId : catégorie à montrer (ouverture depuis l'appui long sur son onglet)
+  function openManage(focusId){
     var src=(mode==='buy'?S.buy:S.sections).filter(function(s){return !s.virtual;});
     sh={kind:'manage',target:mode,draft:src.map(function(s){return {src:s,name:s.name,color:ckey(s),groups:s.groups.map(function(g){return {src:g,name:g.name};})};})};
     renderManage(true);
+    var i=focusId?src.map(function(s){return s.id;}).indexOf(focusId):-1,el=i>=0&&sheetRoot.querySelectorAll('.mg-sec')[i];
+    if(el){el.classList.add('hl');requestAnimationFrame(function(){try{el.scrollIntoView({block:'center'});}catch(_){el.scrollIntoView();}});setTimeout(function(){el.classList.remove('hl');},1600);}
   }
   function cnt(d){return d.src?d.src.tasks?d.src.tasks.length:d.src.groups.reduce(function(a,g){return a+g.tasks.length;},0):0;}
   function delBtn(path,d){var n=cnt(d);return '<button type="button" class="mini danger" data-m-del="'+path+'" aria-label="Supprimer">'+(d.confirm?'Supprimer '+(n?'+ '+n+' élément'+(n>1?'s':''):'')+' ?':'×')+'</button>';}
@@ -400,8 +405,8 @@ export function startApp(store, data, root){
       h+='<button type="button" class="addline" data-m-addg="'+i+'">+ '+(isBuy?'Sous-catégorie':'Groupe')+'</button></div></div>';
     });
     h+='</div><button type="button" class="btn ghost" data-m-adds>+ '+(isBuy?'Nouvelle catégorie':'Nouveau projet')+'</button>'+
-      '<div class="actions"><span class="spacer"></span><button type="button" class="btn ghost" data-close>Annuler</button><button type="button" class="btn" data-m-save>Enregistrer</button></div>';
-    sheetRoot.innerHTML=wrap(isBuy?'Catégories de la wishlist':'Projets et groupes',h);
+      '<div class="ed-foot"><button type="button" class="tbtn" data-close>Annuler</button><span class="spacer"></span><button type="button" class="btn" data-m-save>Enregistrer</button></div>';
+    sheetRoot.innerHTML=edSheet(isBuy?'Catégories de la wishlist':'Projets et groupes',h);
     if(first){var b=sheetRoot.querySelector('.sheet');if(b)b.focus&&b.focus();}
   }
   function syncManage(){sh.draft.forEach(function(s,i){var e=sheetRoot.querySelector('#m-s-'+i);if(e)s.name=e.value;s.groups.forEach(function(g,j){var f=sheetRoot.querySelector('#m-g-'+i+'-'+j);if(f)g.name=f.value;});});}
@@ -432,7 +437,7 @@ export function startApp(store, data, root){
   document.addEventListener('input',function(e){
     if(sh&&sh.kind==='buy'&&e.target.id==='bs-link'){var a=sheetRoot.querySelector('#bs-ext'),v=e.target.value.trim(),ok=/^https?:\/\//i.test(v);if(a){a.hidden=!ok;if(ok)a.href=v;}}
   });
-  var SEL='[data-mode],[data-tab],[data-btab],[data-open],[data-bopen],[data-add],[data-sug],[data-manage],[data-close],[data-sh-sec],[data-sh-p],[data-sh-due],[data-bs-lvl],[data-sh-save],[data-sh-del],[data-snooze],[data-bcycle],[data-rep],[data-edit],[data-qfocus],[data-qgo],[data-rp],[data-rp-save],[data-m-color],[data-m-up],[data-m-down],[data-m-del],[data-m-addg],[data-m-adds],[data-m-save]';
+  var SEL='[data-mode],[data-tab],[data-btab],[data-open],[data-bopen],[data-add],[data-sug],[data-manage],[data-close],[data-sh-sec],[data-sh-p],[data-sh-due],[data-bs-lvl],[data-sh-save],[data-sh-del],[data-snooze],[data-bcycle],[data-rep],[data-edit],[data-qfocus],[data-qgo],[data-rp],[data-rp-save],[data-rp-p],[data-rp-full],[data-m-color],[data-m-up],[data-m-down],[data-m-del],[data-m-addg],[data-m-adds],[data-m-save]';
   document.addEventListener('click',function(e){
     var b=e.target.closest&&e.target.closest(SEL);if(!b)return;
     function A(n){return b.getAttribute('data-'+n);}
@@ -452,7 +457,7 @@ export function startApp(store, data, root){
     if(has('sug')){S.focus=A('sug').split(',');change();return;}
     if(!sh)return;
     if(has('close')){closeSheet();return;}
-    if(sh.kind==='rep'){if(has('rp')){syncRep();sh.when=A('rp');if(sh.when!=='date')sh.date='';renderRep();}else if(has('rp-save'))saveRep();return;}
+    if(sh.kind==='rep'){if(has('rp-p')){syncRep();sh.p=A('rp-p')==='keep'?'keep':+A('rp-p');renderRep();return;}if(has('rp-full')){var rid=sh.id;closeSheet();openTask(rid);return;}if(has('rp')){syncRep();sh.when=A('rp');if(sh.when!=='date')sh.date='';renderRep();}else if(has('rp-save'))saveRep();return;}
     if(sh.kind==='manage'){
       syncManage();
       if(has('m-color')){var d=sh.draft[+A('m-color')];d.color=PAL[(PAL.indexOf(d.color)+1)%PAL.length];}
@@ -566,7 +571,7 @@ export function startApp(store, data, root){
     var c=cm.c;renameFromMenu();
     if(b.hasAttribute('data-cm-color')){c.s.color=b.getAttribute('data-cm-color');change();cm.draw();return;}
     if(b.hasAttribute('data-cm-share')){closeMenu();openShare('cat',c.s.id);return;}
-    if(b.hasAttribute('data-cm-manage')){closeMenu();mode=c.k==='b'?'buy':'todo';openManage();return;}
+    if(b.hasAttribute('data-cm-manage')){closeMenu();mode=c.k==='b'?'buy':'todo';openManage(c.s.id);return;}
     if(b.hasAttribute('data-cm-del')){if(!cm.confirm){cm.confirm=true;cm.draw();return;}
       var i=c.secs.indexOf(c.s);if(i>=0)c.secs.splice(i,1);if(tab===c.s.id)tab='today';if(btab===c.s.id)btab='all';closeMenu();toast((c.s.owner&&c.s.owner!==ME.uid?'Tu as quitté « ':'Supprimé : « ')+c.s.name+' »');change();}
   });
