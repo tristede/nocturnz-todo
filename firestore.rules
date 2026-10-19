@@ -1,0 +1,169 @@
+rules_version = '2';
+// Modèle :
+//   users/{uid}        profil + ordre des catégories + focus du jour (privé)
+//   cats/{id}          catégorie (todo ou wishlist) avec ses sous-catégories ; members = qui la voit et la modifie
+//   tasks/{id}         tâche ou article ; visible par les membres de sa catégorie + guests (partage d'une seule tâche)
+//   invites/{id}       invitation par email, id = <type>_<cible>__<email>
+//   notifs/{id}        notification pour un utilisateur (cloche)
+//   access/{email}     carte de membre du club (accès sur invitation) ; by = qui a invité
+//   quota/{uid}        nombre d'invitations club utilisées (2 max, sauf admins)
+//   config/club        { admins: [emails] } — modifiable uniquement depuis la console
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function authed() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function verified() { return authed() && request.auth.token.email_verified == true && request.auth.token.email is string; }
+    function d(c, id) { return /databases/$(database)/documents/$(c)/$(id); }
+    function isAdmin() { return verified() && exists(d('config', 'club')) && myEmail() in get(d('config', 'club')).data.admins; }
+    // Club privé : seuls les membres (carte access/<email>) et les admins utilisent l'appli
+    function signed() { return verified() && (exists(d('access', myEmail())) || isAdmin()); }
+    function quotaOf(uid) { return exists(d('quota', uid)) ? get(d('quota', uid)).data.n : 0; }
+    function quotaAfter(uid) { return existsAfter(d('quota', uid)) ? getAfter(d('quota', uid)).data.n : 0; }
+    function onlyKeys(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+    function catOf(id) { return get(/databases/$(database)/documents/cats/$(id)); }
+    function catAfter(id) { return getAfter(/databases/$(database)/documents/cats/$(id)); }
+    function inCat(id) { return exists(/databases/$(database)/documents/cats/$(id)) && me() in catOf(id).data.members; }
+    function inCatAfter(id) { return existsAfter(/databases/$(database)/documents/cats/$(id)) && me() in catAfter(id).data.members; }
+    function pendingInvite(id) {
+      let p = /databases/$(database)/documents/invites/$(id);
+      return verified() && exists(p) && get(p).data.status == 'pending' && get(p).data.toEmail == myEmail();
+    }
+    // la liste après écriture = la liste avant + moi (ou – moi)
+    function adds(after, before) { return after.toSet() == before.toSet().union([me()].toSet()) && after.size() == before.size() + 1; }
+    function removes(after, before, who) { return after.toSet() == before.toSet().difference([who].toSet()) && after.size() == before.size() - 1; }
+
+    match /config/{id} {
+      allow get: if signed();
+    }
+
+    match /access/{email} {
+      // un membre peut vérifier si quelqu'un est déjà membre (avant de partager) ; on peut toujours lire sa propre carte
+      allow get: if signed() || (verified() && email == myEmail());
+      allow list: if signed() && resource.data.by == me();
+      // inviter au club : 2 cartes max par membre (compteur quota incrémenté dans le même lot), illimité pour un admin
+      allow create: if signed()
+        && email == email.lower() && email.matches('^[^@/ ]+@[^@/ ]+[.][^@/ ]+$')
+        && request.resource.data.keys().hasOnly(['email', 'by', 'byName', 'joined', 'createdAt'])
+        && request.resource.data.email == email
+        && request.resource.data.by == me()
+        && (
+          (request.resource.data.joined == false
+            && (isAdmin() || (quotaAfter(me()) == quotaOf(me()) + 1 && quotaAfter(me()) <= 2 && getAfter(d('quota', me())).data.last == email)))
+          // un admin se crée sa propre carte
+          || (request.resource.data.joined == true && email == myEmail() && isAdmin())
+        );
+      // l'invité active sa carte à sa première connexion
+      allow update: if verified() && email == myEmail()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joined', 'uid', 'name', 'joinedAt'])
+        && request.resource.data.joined == true && request.resource.data.uid == me();
+      // annuler une invitation pas encore utilisée (rend la place) ; un admin peut retirer n'importe qui
+      allow delete: if isAdmin()
+        || (signed() && resource.data.by == me() && resource.data.joined == false
+            && quotaAfter(me()) == quotaOf(me()) - 1 && getAfter(d('quota', me())).data.last == email);
+    }
+
+    match /quota/{uid} {
+      function bumpOk(d) {
+        let e = d.last;
+        return (d.n == quotaOf(uid) + 1 && d.n <= 2
+                 && !exists(d('access', e)) && existsAfter(d('access', e)) && getAfter(d('access', e)).data.by == me())
+          || (d.n == quotaOf(uid) - 1 && d.n >= 0
+                 && exists(d('access', e)) && !existsAfter(d('access', e))
+                 && get(d('access', e)).data.by == me() && get(d('access', e)).data.joined == false);
+      }
+      allow get: if authed() && me() == uid;
+      allow create, update: if signed() && me() == uid
+        && request.resource.data.keys().hasOnly(['n', 'last']) && request.resource.data.last is string
+        && bumpOk(request.resource.data);
+    }
+
+    match /users/{uid} {
+      allow read, write: if signed() && me() == uid;
+    }
+
+    match /cats/{c} {
+      allow read: if signed() && me() in resource.data.members;
+      allow create: if signed()
+        && request.resource.data.owner == me()
+        && request.resource.data.members == [me()]
+        && request.resource.data.kind in ['todo', 'buy']
+        && request.resource.data.name is string;
+      allow update: if signed() && (
+        // membre : nom, couleur, sous-catégories (pas les membres ni le propriétaire)
+        (me() in resource.data.members && onlyKeys(['name', 'color', 'groups', 'updatedAt']))
+        // membre : mettre à jour sa propre fiche (pseudo)
+        || (me() in resource.data.members && onlyKeys(['memberInfo'])
+            && request.resource.data.memberInfo.diff(resource.data.get('memberInfo', {})).affectedKeys().hasOnly([me()]))
+        // propriétaire : retirer quelqu'un
+        || (me() == resource.data.owner && onlyKeys(['members', 'memberInfo'])
+            && resource.data.members.toSet().hasAll(request.resource.data.members) && me() in request.resource.data.members)
+        // membre non propriétaire : quitter
+        || (me() in resource.data.members && me() != resource.data.owner && onlyKeys(['members', 'memberInfo'])
+            && removes(request.resource.data.members, resource.data.members, me()))
+        // invité : rejoindre avec une invitation en attente
+        || (!(me() in resource.data.members) && onlyKeys(['members', 'memberInfo'])
+            && adds(request.resource.data.members, resource.data.members) && pendingInvite('cat_' + c + '__' + myEmail()))
+      );
+      allow delete: if signed() && me() == resource.data.owner;
+    }
+
+    match /tasks/{t} {
+      function guests(d) { return d.get('guests', []); }
+      allow read: if signed() && (me() in guests(resource.data) || inCat(resource.data.catId));
+      allow create: if signed()
+        && inCatAfter(request.resource.data.catId)
+        && guests(request.resource.data).size() == 0
+        && request.resource.data.by == me();
+      allow update: if signed() && (
+        // membre de la catégorie ou invité sur la tâche : contenu, et déplacement vers une catégorie dont il est membre
+        ((me() in guests(resource.data) || inCat(resource.data.catId))
+          && request.resource.data.by == resource.data.by
+          && (request.resource.data.catId == resource.data.catId || inCatAfter(request.resource.data.catId))
+          && (guests(request.resource.data) == guests(resource.data)
+              // un membre de la catégorie retire un invité / un invité se retire
+              || (inCat(resource.data.catId) && guests(resource.data).toSet().hasAll(guests(request.resource.data)))
+              || removes(guests(request.resource.data), guests(resource.data), me())))
+        // rejoindre une tâche partagée avec une invitation en attente
+        || (!(me() in guests(resource.data)) && onlyKeys(['guests', 'guestInfo'])
+            && adds(guests(request.resource.data), guests(resource.data)) && pendingInvite('task_' + t + '__' + myEmail()))
+      );
+      allow delete: if signed() && inCat(resource.data.catId);
+    }
+
+    match /invites/{id} {
+      function canShare(d) {
+        return d.type == 'cat' ? inCat(d.target)
+          : exists(/databases/$(database)/documents/tasks/$(d.target))
+            && inCat(get(/databases/$(database)/documents/tasks/$(d.target)).data.catId);
+      }
+      allow read: if signed() && (resource.data.from == me() || (verified() && resource.data.toEmail == myEmail()));
+      allow create: if signed()
+        && request.resource.data.from == me()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.type in ['cat', 'task']
+        && request.resource.data.toEmail is string
+        && request.resource.data.toEmail == request.resource.data.toEmail.lower()
+        && request.resource.data.toEmail != myEmail()
+        && id == request.resource.data.type + '_' + request.resource.data.target + '__' + request.resource.data.toEmail
+        && canShare(request.resource.data);
+      allow update: if signed() && (
+        // le destinataire accepte ou refuse
+        (verified() && resource.data.toEmail == myEmail() && onlyKeys(['status', 'answeredAt'])
+          && request.resource.data.status in ['accepted', 'declined'])
+        // l'auteur relance une invitation refusée
+        || (resource.data.from == me() && request.resource.data.from == me() && request.resource.data.status == 'pending'
+            && request.resource.data.toEmail == resource.data.toEmail && request.resource.data.target == resource.data.target
+            && canShare(request.resource.data))
+      );
+      allow delete: if signed() && (resource.data.from == me() || (verified() && resource.data.toEmail == myEmail()));
+    }
+
+    match /notifs/{id} {
+      allow read, delete: if signed() && resource.data.to == me();
+      allow update: if signed() && resource.data.to == me() && onlyKeys(['read']);
+      allow create: if signed() && request.resource.data.from == me() && request.resource.data.to != me()
+        && request.resource.data.read == false && request.resource.data.text is string && request.resource.data.text.size() < 400;
+    }
+  }
+}
