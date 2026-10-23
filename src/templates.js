@@ -24,7 +24,7 @@ export const TEMPLATES = [
     id: 'mcu-endgame',
     name: 'MCU → Doomsday',
     aliases: ['MCU → Endgame'],
-    desc: 'Tout le MCU par phase jusqu’à Avengers : Doomsday, et en parallèle Spider-Man (Sony), X-Men et 4 Fantastiques (Fox), Daredevil et The Punisher (Netflix).',
+    desc: 'Tout le MCU par phase jusqu’à Avengers : Doomsday, et en parallèle Spider-Man (Sony), X-Men et 4 Fantastiques (Fox), les séries Netflix.',
     color: 'perso',
     groups: [
       { name: 'Phase 1 · 2008-2012', items: [
@@ -130,12 +130,20 @@ export const TEMPLATES = [
         L({ t: 'Les 4 Fantastiques', imp: 1, rel: '2005-07-08', dur: 106, note: LIEN_FF }),
         L({ t: 'Les 4 Fantastiques et le Surfer d’argent', rel: '2007-06-15', dur: 92, note: LIEN_FF }),
       ] },
-      { name: 'Séries Netflix (Daredevil, The Punisher)', side: true, items: [
+      { name: 'Séries Netflix (Daredevil, Jessica Jones, Punisher…)', side: true, items: [
         L({ t: 'Daredevil – Saison 1', imp: 1, rel: '2015-04-10', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'Jessica Jones – Saison 1', rel: '2015-11-20', fmt: serie(13), note: LIEN_NETFLIX }),
         L({ t: 'Daredevil – Saison 2', imp: 1, rel: '2016-03-18', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'Luke Cage – Saison 1', rel: '2016-09-30', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'Iron Fist – Saison 1', rel: '2017-03-17', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'The Defenders', rel: '2017-08-18', fmt: 'Mini-série · 8 ép.', note: LIEN_NETFLIX }),
         L({ t: 'The Punisher – Saison 1', imp: 1, rel: '2017-11-17', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'Jessica Jones – Saison 2', rel: '2018-03-08', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'Luke Cage – Saison 2', rel: '2018-06-22', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'Iron Fist – Saison 2', rel: '2018-09-07', fmt: serie(10), note: LIEN_NETFLIX }),
         L({ t: 'Daredevil – Saison 3', imp: 1, rel: '2018-10-19', fmt: serie(13), note: LIEN_NETFLIX }),
         L({ t: 'The Punisher – Saison 2', imp: 1, rel: '2019-01-18', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'Jessica Jones – Saison 3', rel: '2019-06-14', fmt: serie(13), note: LIEN_NETFLIX }),
       ] },
     ],
   },
