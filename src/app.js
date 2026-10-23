@@ -169,16 +169,18 @@ export function startApp(store, data, root){
     g.name=v;change();
   }
   /* ---------- Suivi (watchlist) : progression vers un objectif ---------- */
-  var IMP={1:{n:'À regarder',c:'oasis'},2:{n:'Mieux de voir',c:'important'},3:{n:'Tu peux skip',c:'later'}};
+  // deux niveaux : l'ancien « Mieux de voir » (2) compte comme « À regarder »
+  var IMP={1:{n:'À regarder',c:'oasis'},3:{n:'Tu peux skip',c:'later'}};
+  function impOf(t){var i=t.imp||1;return i===2?1:i;}
   var wf={imp:0,hide:false,grp:'',lm:true,lh:true};try{var wfs=JSON.parse(localStorage.getItem('wf')||'null');if(wfs)wf=wfs;}catch(_){}
-  if(wf.lm===undefined)wf.lm=true;if(wf.lh===undefined)wf.lh=true;
+  if(wf.imp===2)wf.imp=1;if(wf.lm===undefined)wf.lm=true;if(wf.lh===undefined)wf.lh=true;
   function saveWf(){try{localStorage.setItem('wf',JSON.stringify(wf));}catch(_){}}
   function hm(min){min=Math.round(min||0);var h=Math.floor(min/60),m=min%60;return h?h+' h'+(m?' '+String(m).padStart(2,'0'):''):m+' min';}
   function yr(k){return k?k.slice(0,4):'';}
   // date de sortie lisible : « 2 mai 2008 » (ou l'année seule si on ne la connaît pas plus précisément)
   function relDate(k){if(!k)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(k))return k.slice(0,4);return new Date(k+'T12:00').toLocaleDateString('fr-BE',{day:'numeric',month:'short',year:'numeric'});}
   function byRel(a,b){return (a.t.rel||'9999')<(b.t.rel||'9999')?-1:(a.t.rel||'9999')>(b.t.rel||'9999')?1:0;}
-  function impTag(i){var m=IMP[i];return m?'<span class="imp" style="--c:var(--'+m.c+')">'+m.n+'</span>':'';}
+  function impTag(i){var m=IMP[i===2?1:(i||1)];return m?'<span class="imp" style="--c:var(--'+m.c+')">'+m.n+'</span>':'';}
   function wrow(x,n,ctx){
     var t=x.t,m=[];
     // déjà vu : version compacte, titre + année seulement
@@ -206,9 +208,9 @@ export function startApp(store, data, root){
     var ctx={goal:goal,L:L,back:{}};main.forEach(function(x){(x.t.lk||[]).forEach(function(n){(ctx.back[n]=ctx.back[n]||[]).push(x);});});
     var G=goal?main.filter(function(x){return (x.t.rel||'')<=(goal.t.rel||'9999');}):main;
     var seen=G.filter(function(x){return x.t.d;}),left=G.filter(function(x){return !x.t.d;});
-    var ess=left.filter(function(x){return (x.t.imp||1)===1;}),pct=G.length?Math.round(seen.length/G.length*100):0;
+    var ess=left.filter(function(x){return impOf(x.t)===1;}),pct=G.length?Math.round(seen.length/G.length*100):0;
     var tAll=left.reduce(function(a,x){return a+(x.t.dur||0);},0),tEss=ess.reduce(function(a,x){return a+(x.t.dur||0);},0);
-    var next=left.filter(function(x){var i=x.t.imp||1;return wf.imp?i===wf.imp:i!==3;})[0]||left[0];
+    var next=left.filter(function(x){var i=impOf(x.t);return wf.imp?i===wf.imp:i!==3;})[0]||left[0];
     var h='<div class="pagehead" style="--c:'+col(s)+'"><h2><input class="gname pname inl" type="text" value="'+esc(s.name)+'" data-ck="t" data-cs="'+si+'" enterkeyhint="done" autocomplete="off" aria-label="Renommer le suivi"></h2>'+shareBtn(s,'t')+'</div>';
     h+='<section class="card whero"><div class="wh-top"><div><div class="eyebrow">'+(goal?'Objectif':'Progression')+'</div><div class="wh-goal">'+(goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
       '<div class="wbar"><i style="width:'+pct+'%"></i></div>'+
@@ -226,7 +228,7 @@ export function startApp(store, data, root){
     if(bonus.length)h+='<div class="wtabs seg" role="tablist">'+
       '<button type="button" role="tab" data-wf-grp="" aria-selected="'+!hors+'">MCU <span class="n">'+main.filter(function(x){return x.t.d;}).length+'/'+main.length+'</span></button>'+
       '<button type="button" role="tab" data-wf-grp="hors" aria-selected="'+hors+'">Hors MCU <span class="n">'+bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+'</span></button></div>';
-    if(!hors)h+='<div class="chipscroll wfilters">'+[[0,'Toute importance'],[1,IMP[1].n],[2,IMP[2].n],[3,IMP[3].n]].map(function(f){
+    if(!hors)h+='<div class="chipscroll wfilters">'+[[0,'Toute importance'],[1,IMP[1].n],[3,IMP[3].n]].map(function(f){
       return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]?IMP[f[0]].c:'ink')+')" data-wf-imp="'+f[0]+'" aria-pressed="'+(wf.imp===f[0])+'">'+f[1]+'</button>';}).join('')+
       '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
     else h+='<div class="wintro"><b>À voir avant ou après le MCU</b><span>Autres productions, avec des personnages repris plus tard dans le MCU. Elles ne comptent pas dans ta progression. '+
@@ -234,7 +236,7 @@ export function startApp(store, data, root){
       '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
     h+='<div class="wtoggles"><span>Afficher les liens</span><button type="button" class="chipb tg" style="--c:var(--oasis)" data-wf-lm aria-pressed="'+!!wf.lm+'">MCU</button><button type="button" class="chipb tg" style="--c:var(--contenu)" data-wf-lh aria-pressed="'+!!wf.lh+'">Hors MCU</button></div>';
     h+='<p class="wconv">Ordre de sortie · dates de sortie aux États-Unis</p>';
-    var keep=function(x){return !(wf.hide&&x.t.d)&&(hors||!wf.imp||(x.t.imp||1)===wf.imp);};
+    var keep=function(x){return !(wf.hide&&x.t.d)&&(hors||!wf.imp||impOf(x.t)===wf.imp);};
     h+='<section class="card notes">';
     s.groups.forEach(function(g,gi){
       if(side(g)!==hors)return;
@@ -254,7 +256,7 @@ export function startApp(store, data, root){
     return h;
   }
   var wreset='';
-  function openWatch(id){var x=find(id);if(!x)return;var t=x.t;sh={kind:'watch',id:id,text:t.t,rel:t.rel||'',dur:t.dur||'',imp:t.imp||1,goal:!!t.goal,d:!!t.d,note:t.note||'',confirm:false};renderWatch();}
+  function openWatch(id){var x=find(id);if(!x)return;var t=x.t;sh={kind:'watch',id:id,text:t.t,rel:t.rel||'',dur:t.dur||'',imp:impOf(t),goal:!!t.goal,d:!!t.d,note:t.note||'',confirm:false};renderWatch();}
   function syncWatch(){var q=function(i){return sheetRoot.querySelector(i);};['text','rel','dur','note'].forEach(function(k){var e=q('#wt-'+k);if(e)sh[k]=e.value;});var g=q('#wt-goal');if(g)sh.goal=g.checked;var d=q('#wt-d');if(d)sh.d=d.checked;}
   function renderWatch(){
     var x=find(sh.id);if(!x){closeSheet();return;}var vh=(x.t.vh||[]).slice().reverse();
@@ -262,7 +264,7 @@ export function startApp(store, data, root){
       '<textarea id="wt-text" class="ed-text" rows="2" aria-label="Titre">'+esc(sh.text)+'</textarea>'+
       '<div class="set"><label class="row" for="wt-rel"><span class="rk">Sortie</span><input type="'+(/^\d{4}$/.test(sh.rel)?'text':'date')+'" id="wt-rel" class="rowin right" value="'+esc(sh.rel)+'" placeholder="AAAA-MM-JJ"></label>'+
         '<label class="row" for="wt-dur"><span class="rk">Durée</span><input type="number" id="wt-dur" class="rowin right" inputmode="numeric" min="0" value="'+esc(sh.dur)+'" placeholder="minutes"><span class="unit">min</span></label></div>'+
-      '<section class="sec"><h4 class="sec-h">Importance</h4><div class="chipscroll">'+[1,2,3].map(function(i){return '<button type="button" class="chipb tg" style="--c:var(--'+IMP[i].c+')" data-wimp="'+i+'" aria-pressed="'+(sh.imp===i)+'">'+IMP[i].n+'</button>';}).join('')+'</div></section>'+
+      '<section class="sec"><h4 class="sec-h">Importance</h4><div class="chipscroll">'+[1,3].map(function(i){return '<button type="button" class="chipb tg" style="--c:var(--'+IMP[i].c+')" data-wimp="'+i+'" aria-pressed="'+(sh.imp===i)+'">'+IMP[i].n+'</button>';}).join('')+'</div></section>'+
       '<div class="set"><label class="row" for="wt-note"><span class="rk">Note</span><input type="text" id="wt-note" class="rowin right" value="'+esc(sh.note)+'" placeholder="où le voir, avec qui…"></label>'+
         '<label class="row" for="wt-d"><span class="rl">Vu</span><input type="checkbox" class="toggle" id="wt-d"'+(sh.d?' checked':'')+'></label>'+
         '<label class="row" for="wt-goal"><span class="rl">C’est l’objectif</span><input type="checkbox" class="toggle" id="wt-goal"'+(sh.goal?' checked':'')+'></label></div>'+
@@ -283,7 +285,7 @@ export function startApp(store, data, root){
     var have={},where={};s.groups.forEach(function(g){g.tasks.forEach(function(t){have[t.t]=t;where[t.t]=g.name;});});
     var out=[];tpl.groups.forEach(function(g){g.items.forEach(function(it){var t=have[it.t];
       if(!t){out.push({g:g.name,side:!!g.side,it:it});return;}
-      var lacks=['lk','pre','fmt','cont'].some(function(k){return it[k]&&!t[k];})||(!!it.goal!==!!t.goal);
+      var lacks=['lk','pre','fmt','cont'].some(function(k){return it[k]&&!t[k];})||(!!it.goal!==!!t.goal)||t.imp===2;
       if(where[it.t]!==g.name||lacks)out.push({g:g.name,side:!!g.side,it:it,upd:t});});});return out;}
   // Crée un suivi (vide ou depuis un modèle) et l'ouvre
   function createWatch(tpl){
@@ -310,7 +312,7 @@ export function startApp(store, data, root){
       var grp=function(name,side){var g=sc.groups.filter(function(x){return x.name===name;})[0];if(!g){g={name:name,tasks:[]};sc.groups.push(g);}if(side)g.side=true;return g;};
       if(tpl)tpl.groups.forEach(function(g){grp(g.name,g.side);});
       mm.forEach(function(o){var g=grp(o.g,o.side);
-        if(o.upd){['lk','pre','fmt','cont','ph','note'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});if(o.it.goal)o.upd.goal=true;else delete o.upd.goal;
+        if(o.upd){['lk','pre','fmt','cont','ph','note'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});if(o.it.goal)o.upd.goal=true;else delete o.upd.goal;if(o.upd.imp===2)o.upd.imp=1;
           sc.groups.forEach(function(x){var i=x.tasks.indexOf(o.upd);if(i>=0&&x!==g){x.tasks.splice(i,1);g.tasks.push(o.upd);}});return;}
         g.tasks.push(tplItem(o.it));nAdd++;});
       // ordre des groupes comme dans le modèle, groupes vidés retirés
