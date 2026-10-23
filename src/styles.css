@@ -508,7 +508,12 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .grp-h.ph{display:flex;justify-content:space-between}
 .wrow{flex-wrap:wrap}
 .wlinks{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:2px 0 2px 36px;font-size:12px;color:var(--muted)}
-.wlink{border:1px solid color-mix(in srgb,var(--contenu) 45%,var(--line));background:transparent;color:var(--contenu);border-radius:999px;padding:3px 9px;font-size:12.5px;font-weight:600}
+.wlink{--lc:var(--contenu);border:1px solid color-mix(in srgb,var(--lc) 45%,var(--line));background:transparent;color:var(--lc);border-radius:999px;padding:3px 9px;font-size:12.5px;font-weight:600}
+.wlink.pre{--lc:var(--oasis)}
+.wl-l{flex:none;min-width:74px;font:500 10.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--contenu)}
+.wl-l.pre{color:var(--oasis)}
+.wtoggles{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.wtoggles span{margin-right:4px}
 .wlink::before{content:"↗ "}
 .wlink.seen{opacity:.55;text-decoration:line-through}
 .afterb,.soonb{font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;border-radius:999px;padding:1px 7px;border:1px solid currentColor}
@@ -517,3 +522,4 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .wrow.flash{background:color-mix(in srgb,var(--contenu) 16%,transparent);transition:background .4s}
 .grp-h.ed .afterb{flex:none;margin-top:8px}
 .wnote{margin:-6px 0 0;font-size:12px;color:var(--muted)}
+.wyear{font:500 12px var(--mono);color:var(--muted);text-decoration:none;display:inline-block;margin-left:4px}

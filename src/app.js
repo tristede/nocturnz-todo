@@ -170,7 +170,8 @@ export function startApp(store, data, root){
   }
   /* ---------- Suivi (watchlist) : progression vers un objectif ---------- */
   var IMP={1:{n:'À regarder',c:'oasis'},2:{n:'Mieux de voir',c:'important'},3:{n:'Tu peux skip',c:'later'}};
-  var wf={imp:0,hide:false,grp:''};try{var wfs=JSON.parse(localStorage.getItem('wf')||'null');if(wfs)wf=wfs;}catch(_){}
+  var wf={imp:0,hide:false,grp:'',lm:true,lh:true};try{var wfs=JSON.parse(localStorage.getItem('wf')||'null');if(wfs)wf=wfs;}catch(_){}
+  if(wf.lm===undefined)wf.lm=true;if(wf.lh===undefined)wf.lh=true;
   function saveWf(){try{localStorage.setItem('wf',JSON.stringify(wf));}catch(_){}}
   function hm(min){min=Math.round(min||0);var h=Math.floor(min/60),m=min%60;return h?h+' h'+(m?' '+String(m).padStart(2,'0'):''):m+' min';}
   function yr(k){return k?k.slice(0,4):'';}
@@ -179,16 +180,24 @@ export function startApp(store, data, root){
   function byRel(a,b){return (a.t.rel||'9999')<(b.t.rel||'9999')?-1:(a.t.rel||'9999')>(b.t.rel||'9999')?1:0;}
   function impTag(i){var m=IMP[i];return m?'<span class="imp" style="--c:var(--'+m.c+')">'+m.n+'</span>':'';}
   function wrow(x,n,ctx){
-    var t=x.t,m=[];if(t.rel)m.push('<span class="reld">'+relDate(t.rel)+'</span>');if(t.fmt)m.push(esc(t.fmt));else if(t.dur)m.push(hm(t.dur));
+    var t=x.t,m=[];
+    // déjà vu : version compacte, titre + année seulement
+    if(t.d)return '<li class="task wrow done" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
+      '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'" checked aria-label="Marquer comme pas vu : '+esc(t.t)+'">'+
+      '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.rel?' <span class="wyear">'+yr(t.rel)+'</span>':'')+'</span></button></li>';
+    if(t.rel)m.push('<span class="reld">'+relDate(t.rel)+'</span>');if(t.fmt)m.push(esc(t.fmt));else if(t.dur)m.push(hm(t.dur));
     ctx=ctx||{L:[],back:{}};var today=new Date().toISOString().slice(0,10),badge='';
     if(t.rel&&t.rel>today)badge='<span class="soonb">À venir</span>';
     var find2=function(n){return ctx.L.filter(function(y){return y.t.t===n;})[0];};
-    var links=(t.lk||[]).map(find2).filter(Boolean).concat(ctx.back[t.t]||[]);
-    return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+(links.length?' haslinks':'')+'" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
+    var pre=wf.lm?(t.pre||[]).map(find2).filter(Boolean):[];
+    var links=wf.lh?(t.lk||[]).map(find2).filter(Boolean).concat(ctx.back[t.t]||[]):[];
+    var chips=function(L,cls){return L.map(function(y){return '<button type="button" class="wlink '+cls+(y.t.d?' seen':'')+'" data-wlink="'+y.t.id+'">'+esc(y.t.t)+'</button>';}).join('');};
+    return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+(links.length||pre.length?' haslinks':'')+'" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme vu : '+esc(t.t)+'">'+
       '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.goal?' <span class="goalb">Objectif</span>':'')+'</span>'+
-      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp)+(t.cont?'<span class="lien" title="'+esc(t.note||'Autre production, liée au MCU')+'">Lien MCU</span>':'')+(t.d&&t.at?'<span class="seen">Vu le '+fdate(t.at)+'</span>':'')+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+
-      (links.length?'<div class="wlinks"><span>'+(t.cont?'Lié à':'Liés')+'</span>'+links.map(function(y){return '<button type="button" class="wlink'+(y.t.d?' seen':'')+'" data-wlink="'+y.t.id+'">'+esc(y.t.t)+'</button>';}).join('')+'</div>':'')+'</li>';
+      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp)+(t.cont?'<span class="lien" title="'+esc(t.note||'Autre production, liée au MCU')+'">Lien MCU</span>':'')+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+
+      (pre.length?'<div class="wlinks"><span class="wl-l pre">À voir avant</span>'+chips(pre,'pre')+'</div>':'')+
+      (links.length?'<div class="wlinks"><span class="wl-l">'+(t.cont?'Lié à':'Hors MCU')+'</span>'+chips(links,'hors')+'</div>':'')+'</li>';
   }
   function viewWatch(s,every){
     var si=S.sections.indexOf(s),L=every.filter(function(x){return x.s===s;}).sort(byRel);
@@ -210,7 +219,7 @@ export function startApp(store, data, root){
         (G.length?'<div class="wnext done-all"><b>'+(goal?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
     var miss=tplMissing(s);
     var nNew=miss.filter(function(o){return !o.upd;}).length;
-    if(miss.length)h+='<div class="wmiss"><span>'+(nNew?nNew+' titre'+(nNew>1?'s':'')+' et des infos ajoutés':'Des infos (phases, objectif, liens) ajoutées')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Mettre à jour</button></div>';
+    if(miss.length)h+='<div class="wmiss"><span>'+(nNew?nNew+' titre'+(nNew>1?'s':'')+' et des infos ajoutés':'Des infos (noms des groupes, objectif, liens « à voir avant ») ajoutées')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Mettre à jour</button></div>';
     // deux listes séparées : le MCU (par phase) et, en parallèle, les autres productions liées
     if(wf.grp!=='hors'||!bonus.length)wf.grp='';
     var hors=wf.grp==='hors';
@@ -223,6 +232,7 @@ export function startApp(store, data, root){
     else h+='<div class="wintro"><b>À voir avant ou après le MCU</b><span>Autres productions, avec des personnages repris plus tard dans le MCU. Elles ne comptent pas dans ta progression. '+
       bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+' vus · '+hm(bonus.filter(function(x){return !x.t.d;}).reduce(function(a,x){return a+(x.t.dur||0);},0))+' restantes.</span>'+
       '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
+    h+='<div class="wtoggles"><span>Afficher les liens</span><button type="button" class="chipb tg" style="--c:var(--oasis)" data-wf-lm aria-pressed="'+!!wf.lm+'">MCU</button><button type="button" class="chipb tg" style="--c:var(--contenu)" data-wf-lh aria-pressed="'+!!wf.lh+'">Hors MCU</button></div>';
     h+='<p class="wconv">Ordre de sortie · dates de sortie aux États-Unis</p>';
     var keep=function(x){return !(wf.hide&&x.t.d)&&(hors||!wf.imp||(x.t.imp||1)===wf.imp);};
     h+='<section class="card notes">';
@@ -267,13 +277,13 @@ export function startApp(store, data, root){
     if(sh.d&&!t.d){t.d=true;t.at=dayKey();(t.vh=t.vh||[]).push(t.at);}else if(!sh.d&&t.d){t.d=false;delete t.at;}
     closeSheet();change();
   }
-  function tplItem(it){var o={id:nid('t'),t:it.t,d:false,imp:it.imp||1};['rel','dur','fmt','cont','note','ph','lk'].forEach(function(k){if(it[k])o[k]=it[k];});if(it.goal)o.goal=true;return o;}
+  function tplItem(it){var o={id:nid('t'),t:it.t,d:false,imp:it.imp||1};['rel','dur','fmt','cont','note','ph','lk','pre'].forEach(function(k){if(it[k])o[k]=it[k];});if(it.goal)o.goal=true;return o;}
   // Titres du modèle absents du suivi (comparés par titre) : pour compléter un suivi créé avec une ancienne version
   function tplMissing(s){var tpl=TEMPLATES.filter(function(t){return t.id===s.tpl||(!s.tpl&&(t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0));})[0];if(!tpl)return [];
     var have={},where={};s.groups.forEach(function(g){g.tasks.forEach(function(t){have[t.t]=t;where[t.t]=g.name;});});
     var out=[];tpl.groups.forEach(function(g){g.items.forEach(function(it){var t=have[it.t];
       if(!t){out.push({g:g.name,side:!!g.side,it:it});return;}
-      var lacks=['lk','fmt','cont'].some(function(k){return it[k]&&!t[k];})||(!!it.goal!==!!t.goal);
+      var lacks=['lk','pre','fmt','cont'].some(function(k){return it[k]&&!t[k];})||(!!it.goal!==!!t.goal);
       if(where[it.t]!==g.name||lacks)out.push({g:g.name,side:!!g.side,it:it,upd:t});});});return out;}
   // Crée un suivi (vide ou depuis un modèle) et l'ouvre
   function createWatch(tpl){
@@ -283,7 +293,7 @@ export function startApp(store, data, root){
     change();window.scrollTo(0,0);toast(tpl?'Suivi « '+tpl.name+' » créé':'Suivi créé');
   }
   document.addEventListener('click',function(e){
-    var b=e.target.closest&&e.target.closest('[data-wlink],[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
+    var b=e.target.closest&&e.target.closest('[data-wlink],[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wf-lm],[data-wf-lh],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
     function A(n){return b.getAttribute('data-'+n);}function has(n){return b.hasAttribute('data-'+n);}
     if(has('wlink')){var lx=find(A('wlink'));if(!lx)return;var sd=!!lx.g.side||lx.g.tasks.every(function(t){return t.cont;});wf.grp=sd?'hors':'';wf.hide=false;wf.imp=0;saveWf();render();
       var el=document.getElementById('wr-'+lx.t.id);if(el){try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){el.scrollIntoView();}el.classList.add('flash');setTimeout(function(){el.classList.remove('flash');},1600);}return;}
@@ -292,13 +302,15 @@ export function startApp(store, data, root){
     if(has('wf-imp')){wf.imp=+A('wf-imp');saveWf();render();return;}
     if(has('wf-hide')){wf.hide=!wf.hide;saveWf();render();return;}
     if(has('wf-grp')){wf.grp=A('wf-grp');saveWf();render();return;}
+    if(has('wf-lm')){wf.lm=!wf.lm;saveWf();render();return;}
+    if(has('wf-lh')){wf.lh=!wf.lh;saveWf();render();return;}
     if(has('wfill')){var sc=S.sections.filter(function(c){return c.id===A('wfill');})[0];if(!sc)return;var mm=tplMissing(sc);
       // range chaque titre dans le groupe du modèle (phase / production) sans toucher à ce qui est déjà coché
       var tpl=TEMPLATES.filter(function(t){return t.id===sc.tpl||(!sc.tpl&&(t.name===sc.name||(t.aliases||[]).indexOf(sc.name)>=0));})[0],nAdd=0;
       var grp=function(name,side){var g=sc.groups.filter(function(x){return x.name===name;})[0];if(!g){g={name:name,tasks:[]};sc.groups.push(g);}if(side)g.side=true;return g;};
       if(tpl)tpl.groups.forEach(function(g){grp(g.name,g.side);});
       mm.forEach(function(o){var g=grp(o.g,o.side);
-        if(o.upd){['lk','fmt','cont','ph','note'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});if(o.it.goal)o.upd.goal=true;else delete o.upd.goal;
+        if(o.upd){['lk','pre','fmt','cont','ph','note'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});if(o.it.goal)o.upd.goal=true;else delete o.upd.goal;
           sc.groups.forEach(function(x){var i=x.tasks.indexOf(o.upd);if(i>=0&&x!==g){x.tasks.splice(i,1);g.tasks.push(o.upd);}});return;}
         g.tasks.push(tplItem(o.it));nAdd++;});
       // ordre des groupes comme dans le modèle, groupes vidés retirés
