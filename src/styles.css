@@ -532,3 +532,7 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .tab[aria-pressed="true"] .pin{color:inherit}
 .tab.tplw{border:2.5px solid var(--oasis);padding:5.5px 10.5px}
 .tab.tplw[aria-pressed="true"]{border-color:var(--oasis);box-shadow:0 0 0 1px var(--oasis)}
+/* MCU / Hors MCU : bouton sélectionné en contour bleu / mauve */
+.wtabs.seg button[aria-selected="true"]{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--isfsc)}
+.wtabs.seg button[data-wf-grp="hors"][aria-selected="true"]{box-shadow:inset 0 0 0 2px var(--contenu)}
+.wbar.hors i{background:var(--contenu)}
