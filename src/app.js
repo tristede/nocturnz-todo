@@ -157,9 +157,9 @@ export function startApp(store, data, root){
     return '<div class="qline"><span class="qbox"></span><input class="qadd" type="text" id="'+id+'" data-qk="'+kind+'" data-qs="'+si+'" data-qg="'+gi+'"'+(lvl?' data-ql="'+lvl+'"':'')+' placeholder="'+esc(ph)+'" enterkeyhint="done" autocomplete="off" aria-label="'+esc(ph)+'"></div>';
   }
   // En-tête de sous-catégorie : nom modifiable sur place + bouton « + » pour ajouter une ligne
-  function gHead(k,si,gi,g,extra){
+  function gHead(k,si,gi,g,extra,noAdd){
     return '<div class="grp-h ed"><textarea class="gname inl" rows="1" data-gk="'+k+'" data-gs="'+si+'" data-gg="'+gi+'" enterkeyhint="done" aria-label="Renommer la sous-catégorie '+esc(g.name)+'">'+esc(g.name)+'</textarea>'+extra+
-      '<button type="button" class="plus" data-qfocus="qa-'+k+'-'+si+'-'+gi+'" aria-label="Ajouter dans '+esc(g.name)+'">+</button></div>';
+      (noAdd?'':'<button type="button" class="plus" data-qfocus="qa-'+k+'-'+si+'-'+gi+'" aria-label="Ajouter dans '+esc(g.name)+'">+</button>')+'</div>';
   }
   function nameObj(inp){var d=inp.dataset;if(d.ck){return (d.ck==='b'?S.buy:S.sections)[+d.cs];}var s=(d.gk==='b'?S.buy:S.sections)[+d.gs];return s&&s.groups[+d.gg];}
   function renameGroup(inp){
@@ -212,14 +212,12 @@ export function startApp(store, data, root){
     var tAll=left.reduce(function(a,x){return a+(x.t.dur||0);},0),tEss=ess.reduce(function(a,x){return a+(x.t.dur||0);},0);
     var next=left.filter(function(x){var i=impOf(x.t);return wf.imp?i===wf.imp:i!==3;})[0]||left[0];
     var h='<div class="pagehead" style="--c:'+col(s)+'"><h2><input class="gname pname inl" type="text" value="'+esc(s.name)+'" data-ck="t" data-cs="'+si+'" enterkeyhint="done" autocomplete="off" aria-label="Renommer le suivi"></h2>'+shareBtn(s,'t')+'</div>';
-    h+='<section class="card whero"><div class="wh-top"><div><div class="eyebrow">'+(goal?'Objectif':'Progression')+'</div><div class="wh-goal">'+(goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
+    h+='<section class="card whero"><div class="wh-top"><div><div class="wh-goal">'+(goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
       '<div class="wbar"><i style="width:'+pct+'%"></i></div>'+
       '<div class="wstats"><div><b>'+seen.length+'<small>/'+G.length+'</small></b><span>vus</span></div><div><b>'+hm(tAll)+'</b><span>pour tout voir</span></div><div><b>'+hm(tEss)+'</b><span>essentiel seulement</span></div></div>'+
-      (left.some(function(x){return !x.t.dur;})?'<p class="wnote">+ '+left.filter(function(x){return !x.t.dur;}).length+' titres sans durée connue (séries, sorties récentes), non comptés.</p>':'')+
-      (bonus.length?'<div class="wbonus"><span class="lien">Lien MCU</span> Bonus autres productions : <b>'+bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+'</b> vus · hors progression</div>':'')+
       (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[relDate(next.t.rel),next.t.fmt||'',next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
         (G.length?'<div class="wnext done-all"><b>'+(goal?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
-    var miss=tplMissing(s);
+    var miss=tplMissing(s),fromTpl=!!(s.tpl||TEMPLATES.some(function(t){return t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0;}));
     var nNew=miss.filter(function(o){return !o.upd;}).length;
     if(miss.length)h+='<div class="wmiss"><span>'+(nNew?nNew+' titre'+(nNew>1?'s':'')+' et des infos ajoutés':'Des infos (noms des groupes, objectif, liens « à voir avant ») ajoutées')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Mettre à jour</button></div>';
     // deux listes séparées : le MCU (par phase) et, en parallèle, les autres productions liées
@@ -234,17 +232,17 @@ export function startApp(store, data, root){
     else h+='<div class="wintro"><b>À voir avant ou après le MCU</b><span>Autres productions, avec des personnages repris plus tard dans le MCU. Elles ne comptent pas dans ta progression. '+
       bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+' vus · '+hm(bonus.filter(function(x){return !x.t.d;}).reduce(function(a,x){return a+(x.t.dur||0);},0))+' restantes.</span>'+
       '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
-    h+='<div class="wtoggles"><span>Afficher les liens</span><button type="button" class="chipb tg" style="--c:var(--isfsc)" data-wf-lm aria-pressed="'+!!wf.lm+'">MCU</button><button type="button" class="chipb tg" style="--c:var(--contenu)" data-wf-lh aria-pressed="'+!!wf.lh+'">Hors MCU</button></div>';
-    h+='<p class="wconv">Ordre de sortie · dates de sortie aux États-Unis</p>';
+    h+='<div class="wtoggles"><button type="button" class="chipb tg" style="--c:var(--isfsc)" data-wf-lm aria-pressed="'+!!wf.lm+'" aria-label="Afficher les liens MCU">↗ MCU</button><button type="button" class="chipb tg" style="--c:var(--contenu)" data-wf-lh aria-pressed="'+!!wf.lh+'" aria-label="Afficher les liens hors MCU">↗ Hors MCU</button></div>';
     var keep=function(x){return !(wf.hide&&x.t.d)&&(hors||!wf.imp||impOf(x.t)===wf.imp);};
     h+='<section class="card notes">';
     s.groups.forEach(function(g,gi){
       if(side(g)!==hors)return;
       var GL=L.filter(function(x){return x.g===g;}),shown=GL.filter(keep);
       var after=!hors&&goal&&GL.length&&GL.every(function(x){return (x.t.rel||'')>(goal.t.rel||'9999');});
-      h+=gHead('w',si,gi,g,(after?'<span class="afterb">après l’objectif</span>':'')+'<span class="gsum">'+GL.filter(function(x){return x.t.d;}).length+'/'+GL.length+'</span>');
+      h+=gHead('w',si,gi,g,(after?'<span class="afterb">après l’objectif</span>':'')+'<span class="gsum">'+GL.filter(function(x){return x.t.d;}).length+'/'+GL.length+'</span>',fromTpl);
       h+=shown.length?'<ul>'+shown.map(function(x){return wrow(x,GL.indexOf(x)+1,ctx);}).join('')+'</ul>':(GL.length?'<p class="empty">'+(wf.hide?'Tout est vu ici.':'Rien avec ces filtres.')+'</p>':'');
-      h+=qline('w',si,gi,0,'Ajouter dans '+g.name+'…');
+      // suivi issu d'un modèle : liste fixe, pas de ligne d'ajout
+      if(!fromTpl)h+=qline('w',si,gi,0,'Ajouter dans '+g.name+'…');
     });
     if(!s.groups.some(function(g){return side(g)===hors;}))h+='<p class="empty">Aucun titre pour l’instant.</p>';
     h+='</section>';
