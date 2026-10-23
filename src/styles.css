@@ -545,3 +545,6 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .whero .wstats span{font-size:12px}
 .whero .wstats b{font-size:14px}
 .whero .wstats b{font:700 15px/1.2 var(--body)}
+.whero .wstats{gap:4px 18px}
+.whero .wstats b small{font-size:13px;color:var(--muted);font-weight:600}
+.wsub{margin:-8px 0 0;font-size:12px;color:var(--muted)}
