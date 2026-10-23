@@ -548,3 +548,12 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .whero .wstats{gap:4px 18px}
 .whero .wstats b small{font-size:13px;color:var(--muted);font-weight:600}
 .wsub{margin:-8px 0 0;font-size:12px;color:var(--muted)}
+.wtime{border:0;background:none;padding:0;cursor:pointer}
+.whero .wstats .wtime b{color:var(--ink)}
+.whero .wstats .wtime b small{color:var(--later)}
+.whero .wstats .wtime.ess b small{color:var(--oasis)}
+/* chiffres du suivi : plus grands et centrés */
+.whero .wstats{justify-content:center;gap:6px 28px;padding:2px 0}
+.whero .wstats .wtime b{font:700 22px/1.15 var(--display)}
+.whero .wstats .wtime b small{font-size:15px}
+@media (max-width:420px){.whero .wstats{gap:6px 20px}.whero .wstats .wtime b{font-size:19px}.whero .wstats .wtime b small{font-size:13px}}

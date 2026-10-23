@@ -221,8 +221,12 @@ export function startApp(store, data, root){
       (function(){
         // temps vu / temps total, et la même chose sans les « Tu peux skip »
         var sum=function(L){return L.reduce(function(a,x){return a+(x.t.dur||0);},0);},E=G.filter(function(x){return impOf(x.t)===1;});
-        return '<div class="wstats"><span><b>'+seen.length+'<small>/'+G.length+'</small></b></span><span><b>'+hm(sum(seen))+'<small>/'+hm(sum(G))+'</small></b></span></div>'+
-          '<p class="wsub">Sans les skip : '+hm(sum(E.filter(function(x){return x.t.d;})))+' / '+hm(sum(E))+'</p>';
+        // le temps bascule au toucher : total (gris, skip compris) ↔ sans les skip (vert, comme « À regarder »)
+        var ess=wf.tm==='ess',T=ess?E:G;
+        // compteur de titres : interrupteur à part (wf.tc), même principe
+        var cE=wf.tc==='ess',C=cE?E:G,CS=C.filter(function(x){return x.t.d;});
+        return '<div class="wstats"><button type="button" class="wtime'+(cE?' ess':'')+'" data-wcount aria-label="'+(cE?'Titres à regarder vus':'Titres vus, skip compris')+'"><b>'+CS.length+'<small>/'+C.length+'</small></b></button>'+
+          '<button type="button" class="wtime'+(ess?' ess':'')+'" data-wtime aria-label="'+(ess?'Temps sans les skip (toucher pour le temps total)':'Temps total, skip compris (toucher pour le temps sans les skip)')+'"><b>'+hm(sum(T.filter(function(x){return x.t.d;})))+'<small>/'+hm(sum(T))+'</small></b></button></div>';
       })()+
       (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[relDate(next.t.rel),next.t.fmt||'',next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
         (G.length?'<div class="wnext done-all"><b>'+(goal&&!hors?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
@@ -304,7 +308,7 @@ export function startApp(store, data, root){
     change();window.scrollTo(0,0);toast(tpl?'Suivi « '+tpl.name+' » créé':'Suivi créé');
   }
   document.addEventListener('click',function(e){
-    var b=e.target.closest&&e.target.closest('[data-wlink],[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wf-imph],[data-wf-lm],[data-wf-lh],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
+    var b=e.target.closest&&e.target.closest('[data-wlink],[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wtime],[data-wcount],[data-wf-imph],[data-wf-lm],[data-wf-lh],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
     function A(n){return b.getAttribute('data-'+n);}function has(n){return b.hasAttribute('data-'+n);}
     if(has('wlink')){var lx=find(A('wlink'));if(!lx)return;var sd=!!lx.g.side||lx.g.tasks.every(function(t){return t.cont;});wf.grp=sd?'hors':'';wf.hide=false;wf.imp=0;saveWf();render();
       var el=document.getElementById('wr-'+lx.t.id);if(el){try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){el.scrollIntoView();}el.classList.add('flash');setTimeout(function(){el.classList.remove('flash');},1600);}return;}
@@ -314,6 +318,8 @@ export function startApp(store, data, root){
     if(has('wf-hide')){wf.hide=!wf.hide;saveWf();render();return;}
     if(has('wf-grp')){wf.grp=A('wf-grp');saveWf();render();return;}
     if(has('wf-imph')){wf.impH=+A('wf-imph');saveWf();render();return;}
+    if(has('wtime')){wf.tm=wf.tm==='ess'?'all':'ess';saveWf();render();return;}
+    if(has('wcount')){wf.tc=wf.tc==='ess'?'all':'ess';saveWf();render();return;}
     if(has('wf-lm')){wf.lm=!wf.lm;saveWf();render();return;}
     if(has('wf-lh')){wf.lh=!wf.lh;saveWf();render();return;}
     if(has('wfill')){var sc=S.sections.filter(function(c){return c.id===A('wfill');})[0];if(!sc)return;var mm=tplMissing(sc);
