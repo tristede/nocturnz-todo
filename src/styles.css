@@ -526,3 +526,9 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 /* interrupteurs de liens : discrets, contour seulement */
 .ltog{border:1px solid color-mix(in srgb,var(--c) 55%,transparent);background:transparent;color:var(--c);border-radius:999px;padding:4px 10px;font-size:12.5px;font-weight:600}
 .ltog[aria-pressed="false"]{border-color:var(--line);color:var(--muted);opacity:.6}
+/* onglets épinglés et suivi du modèle */
+.tab .pin,.cmenu .pin{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;margin-right:-3px}
+.tab .pin{color:var(--muted)}
+.tab[aria-pressed="true"] .pin{color:inherit}
+.tab.tplw{border:2.5px solid var(--oasis);padding:5.5px 10.5px}
+.tab.tplw[aria-pressed="true"]{border-color:var(--oasis);box-shadow:0 0 0 1px var(--oasis)}

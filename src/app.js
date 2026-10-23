@@ -88,10 +88,10 @@ export function startApp(store, data, root){
     if(mode==='todo'){
       h+='<div class="meter"><div class="track"><i style="width:'+(N?D/N*100:0)+'%"></i></div><span>'+D+'/'+N+' faites</span></div>'+
       '<nav class="tabs" aria-label="Vues">'+tabBtn('tab','today','Aujourd’hui','var(--star)',focOpen,tab)+tabBtn('tab','all','Tout','var(--ink)',N-D,tab)+
-      S.sections.map(function(s,i){return tabBtn('tab',s.id,s.name,col(s),every.filter(function(x){return x.s===s&&!x.t.d;}).length,tab,s.virtual?'':'t:'+i,s);}).join('')+'</nav>';
+      pinOrder(S.sections).map(function(o){var s=o.s,i=o.i;return tabBtn('tab',s.id,s.name,col(s),every.filter(function(x){return x.s===s&&!x.t.d;}).length,tab,s.virtual?'':'t:'+i,s);}).join('')+'</nav>';
     }else{
       h+='<nav class="tabs" aria-label="Catégories de la wishlist">'+tabBtn('btab','all','Tout','var(--ink)',bOpen,btab)+
-      S.buy.map(function(s,i){return tabBtn('btab',s.id,s.name,col(s),B.filter(function(x){return x.s===s&&!x.t.d;}).length,btab,s.virtual?'':'b:'+i,s);}).join('')+'</nav>';
+      pinOrder(S.buy).map(function(o){var s=o.s,i=o.i;return tabBtn('btab',s.id,s.name,col(s),B.filter(function(x){return x.s===s&&!x.t.d;}).length,btab,s.virtual?'':'b:'+i,s);}).join('')+'</nav>';
     }
     h+='</div></header><main id="main">';
     if(mode==='buy')h+=viewBuys(B);
@@ -111,7 +111,11 @@ export function startApp(store, data, root){
   document.addEventListener('input',function(e){if(e.target.classList&&e.target.classList.contains('gname')&&e.target.tagName==='TEXTAREA'){e.target.style.height='auto';e.target.style.height=e.target.scrollHeight+'px';}});
   var PEOPLE='<svg class="ppl" viewBox="0 0 24 24" aria-label="partagée"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.6.2 4.4 1.8 5 4.8"/></svg>';
   function isShared(s){return s&&!s.virtual&&s.members&&s.members.length>1;}
-  function tabBtn(attr,id,name,c,n,cur,drop,s){return '<button class="tab" type="button" data-'+attr+'="'+esc(id)+'" aria-pressed="'+(cur===id)+'" style="--c:'+c+'"'+(drop?' data-drop="'+drop+':-" data-drop-open':'')+'><span class="dot"></span>'+esc(name)+(isShared(s)||(s&&s.virtual)?PEOPLE:'')+(n?'<span class="n">'+n+'</span>':'')+'</button>';}
+  function pinned(s){return !!s&&prefs().pins.indexOf(s.id)>=0;}
+  function pinOrder(secs){var o=secs.map(function(s,i){return {s:s,i:i};});return o.filter(function(x){return pinned(x.s);}).concat(o.filter(function(x){return !pinned(x.s);}));}
+  function isTplWatch(s){return isWatch(s)&&!!(s.tpl||TEMPLATES.some(function(t){return t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0;}));}
+  var PIN='<svg class="pin" viewBox="0 0 24 24" aria-label="épinglée"><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6z"/><path d="M12 14v7"/></svg>';
+  function tabBtn(attr,id,name,c,n,cur,drop,s){return '<button class="tab'+(isTplWatch(s)?' tplw':'')+'" type="button" data-'+attr+'="'+esc(id)+'" aria-pressed="'+(cur===id)+'" style="--c:'+c+'"'+(drop?' data-drop="'+drop+':-" data-drop-open':'')+'><span class="dot"></span>'+(pinned(s)?PIN:'')+esc(name)+(isShared(s)||(s&&s.virtual)?PEOPLE:'')+(n?'<span class="n">'+n+'</span>':'')+'</button>';}
   function shareBtn(s,kind){if(!s||s.virtual)return '';var n=(s.members||[]).length||1;return '<button type="button" class="sharebtn'+(n>1?' on':'')+'" data-share="'+kind+':'+esc(s.id)+'" aria-label="Partager '+esc(s.name)+'">'+PEOPLE+(n>1?'<span>'+n+'</span>':'<span>Partager</span>')+'</button>';}
 
   function viewToday(all,today,foc){
@@ -732,6 +736,7 @@ export function startApp(store, data, root){
     var draw=function(){
       m.innerHTML='<input class="inl cm-name" type="text" value="'+esc(c.s.name)+'" aria-label="Nom de la catégorie" enterkeyhint="done">'+
         '<div class="cm-cols">'+PAL.map(function(k){return '<button type="button" class="cm-col'+(ckey(c.s)===k?' on':'')+'" data-cm-color="'+k+'" style="--c:var(--'+k+')" aria-label="Couleur '+k+'"></button>';}).join('')+'</div>'+
+        '<button type="button" role="menuitem" data-cm-pin>'+PIN+' '+(pinned(c.s)?'Désépingler':'Épingler en tête')+'</button>'+
         '<button type="button" role="menuitem" data-cm-share>'+PEOPLE+' Partager</button>'+
         '<button type="button" role="menuitem" data-cm-manage>Gérer les catégories…</button>'+
         (real.length>1||!own?'<button type="button" role="menuitem" class="danger" data-cm-del>'+(cm.confirm?(own?'Confirmer : supprimer avec ses tâches':'Confirmer : quitter la liste'):(own?'Supprimer':'Quitter la liste partagée'))+'</button>':'');
@@ -754,9 +759,10 @@ export function startApp(store, data, root){
   document.addEventListener('keydown',function(e){if(!cm)return;if(e.key==='Escape'){closeMenu();}else if(e.key==='Enter'&&e.target.classList.contains('cm-name')){e.preventDefault();renameFromMenu();closeMenu();}});
   window.addEventListener('scroll',function(){if(cm&&document.activeElement!==cm.el.querySelector('.cm-name')){renameFromMenu();closeMenu();}},true);
   document.addEventListener('click',function(e){
-    if(!cm)return;var b=e.target.closest&&e.target.closest('[data-cm-color],[data-cm-share],[data-cm-manage],[data-cm-del]');if(!b||!cm.el.contains(b))return;
+    if(!cm)return;var b=e.target.closest&&e.target.closest('[data-cm-color],[data-cm-pin],[data-cm-share],[data-cm-manage],[data-cm-del]');if(!b||!cm.el.contains(b))return;
     var c=cm.c;renameFromMenu();
     if(b.hasAttribute('data-cm-color')){c.s.color=b.getAttribute('data-cm-color');change();cm.draw();return;}
+    if(b.hasAttribute('data-cm-pin')){var P=prefs(),k=P.pins.indexOf(c.s.id);if(k>=0)P.pins.splice(k,1);else P.pins.push(c.s.id);closeMenu();savePrefs(P);toast(k>=0?'Désépinglée':'Épinglée en tête');return;}
     if(b.hasAttribute('data-cm-share')){closeMenu();openShare('cat',c.s.id);return;}
     if(b.hasAttribute('data-cm-manage')){closeMenu();mode=c.k==='b'?'buy':'todo';openManage(c.s.id);return;}
     if(b.hasAttribute('data-cm-del')){if(!cm.confirm){cm.confirm=true;cm.draw();return;}
@@ -853,6 +859,7 @@ export function startApp(store, data, root){
       o.tags[k]=L.map(function(x){return {id:+x.id,n:String(x.n||'Tag'),c:x.c||'later'};});
     });
     o.tools={watch:!!(p.tools&&p.tools.watch)};
+    o.pins=Array.isArray(p.pins)?p.pins.slice():[];
     return o;
   }
   function applyPrefs(){
