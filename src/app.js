@@ -249,7 +249,7 @@ export function startApp(store, data, root){
     }
     h=h.replace('<!--favs-->','');
     var miss=tplMissing(s),fromTpl=!!(s.tpl||TEMPLATES.some(function(t){return t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0;}));
-    var nNew=miss.filter(function(o){return !o.upd&&!o.rm;}).length;
+    var nNew=miss.filter(function(o){return !o.upd&&!o.rm&&!o.rename;}).length;
     if(miss.length)h+='<div class="wmiss"><span>'+(nNew?nNew+' titre'+(nNew>1?'s':'')+' et des infos ajoutés':'Des infos (noms des groupes, objectif, liens « à voir avant ») ajoutées')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Mettre à jour</button></div>';
     // deux listes séparées : le MCU (par phase) et, en parallèle, les autres productions liées
     if(bonus.length)h+='<div class="wtabs seg" role="tablist">'+
@@ -345,6 +345,7 @@ export function startApp(store, data, root){
       if(where[it.t]!==g.name||lacks)out.push({g:g.name,side:!!g.side,it:it,upd:t});});});
     var known={};tpl.groups.forEach(function(g){g.items.forEach(function(it){known[it.t]=1;});});
     s.groups.forEach(function(g){g.tasks.forEach(function(t){if(t.cont&&!t.d&&!known[t.t])out.push({rm:t});});});
+    if((tpl.aliases||[]).indexOf(s.name)>=0)out.push({rename:true});
     return out;}
   // Crée un suivi (vide ou depuis un modèle) et l'ouvre
   function createWatch(tpl){
@@ -381,6 +382,7 @@ export function startApp(store, data, root){
       var grp=function(name,side){var g=sc.groups.filter(function(x){return x.name===name;})[0];if(!g){g={name:name,tasks:[]};sc.groups.push(g);}if(side)g.side=true;return g;};
       if(tpl)tpl.groups.forEach(function(g){grp(g.name,g.side);});
       mm.forEach(function(o){
+        if(o.rename)return;
         if(o.rm){sc.groups.forEach(function(x){var i=x.tasks.indexOf(o.rm);if(i>=0)x.tasks.splice(i,1);});return;}
         var g=grp(o.g,o.side);
         if(o.upd){['lk','pre','fmt','cont','ph','note','dur'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});if(o.it.goal)o.upd.goal=true;else delete o.upd.goal;if(o.upd.imp===2)o.upd.imp=1;if(o.it.cont&&o.it.imp===1&&o.upd.imp===3)o.upd.imp=1;

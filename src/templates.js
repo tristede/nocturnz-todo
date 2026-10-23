@@ -22,8 +22,8 @@ const DD = ['Daredevil – Saison 1', 'Daredevil – Saison 2', 'Daredevil – S
 export const TEMPLATES = [
   {
     id: 'mcu-endgame',
-    name: 'MCU → Doomsday',
-    aliases: ['MCU → Endgame'],
+    name: 'MARVELVISION',
+    aliases: ['Marvel Vision', 'MCU → Doomsday', 'MCU → Endgame'],
     desc: 'Tout le MCU par phase jusqu’à Avengers : Doomsday, et en parallèle le Spider-Verse de Sony, X-Men et 4 Fantastiques (Fox), Blade et Elektra, les séries Netflix.',
     color: 'perso',
     groups: [
