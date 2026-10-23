@@ -176,12 +176,12 @@ export function startApp(store, data, root){
   var wf={imp:0,hide:false,grp:'',lm:true,lh:true};try{var wfs=JSON.parse(localStorage.getItem('wf')||'null');if(wfs)wf=wfs;}catch(_){}
   if(wf.imp===2)wf.imp=1;if(wf.lm===undefined)wf.lm=true;if(wf.lh===undefined)wf.lh=true;
   function saveWf(){try{localStorage.setItem('wf',JSON.stringify(wf));}catch(_){}}
-  function hm(min){min=Math.round(min||0);var h=Math.floor(min/60),m=min%60;return h?h+' h'+(m?' '+String(m).padStart(2,'0'):''):m+' min';}
+  function hm(min){min=Math.round(min||0);if(!min)return '0h';var h=Math.floor(min/60),m=min%60;return h?h+'h'+(m?String(m).padStart(2,'0'):''):m+' min';}
   function yr(k){return k?k.slice(0,4):'';}
   // date de sortie lisible : « 2 mai 2008 » (ou l'année seule si on ne la connaît pas plus précisément)
   function relDate(k){if(!k)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(k))return k.slice(0,4);return new Date(k+'T12:00').toLocaleDateString('fr-BE',{day:'numeric',month:'short',year:'numeric'});}
   function byRel(a,b){return (a.t.rel||'9999')<(b.t.rel||'9999')?-1:(a.t.rel||'9999')>(b.t.rel||'9999')?1:0;}
-  function impTag(i){var m=IMP[i===2?1:(i||1)];return m?'<span class="imp" style="--c:var(--'+m.c+')">'+m.n+'</span>':'';}
+  function impTag(i,side){var k=i===2?1:(i||1),m=IMP[k];return m?'<span class="imp" style="--c:var(--'+(side&&k===1?'contenu':m.c)+')">'+m.n+'</span>':'';}
   function wrow(x,n,ctx){
     var t=x.t,m=[];
     // déjà vu : version compacte, titre + année seulement
@@ -198,7 +198,7 @@ export function startApp(store, data, root){
     return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+(links.length||pre.length?' haslinks':'')+'" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme vu : '+esc(t.t)+'">'+
       '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.goal?' <span class="goalb">Objectif</span>':'')+'</span>'+
-      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp)+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+
+      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp,!!t.cont)+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+
       (pre.length?'<div class="wlinks" aria-label="Titres MCU à voir avant">'+chips(pre,'pre')+'</div>':'')+
       (links.length?'<div class="wlinks" aria-label="'+(t.cont?'Titres MCU liés':'Titres hors MCU liés')+'">'+chips(links,'hors')+'</div>':'')+'</li>';
   }
@@ -241,7 +241,7 @@ export function startApp(store, data, root){
       return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]?IMP[f[0]].c:'ink')+')" data-wf-imp="'+f[0]+'" aria-pressed="'+(wf.imp===f[0])+'">'+f[1]+'</button>';}).join('')+
       '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
     else h+='<div class="chipscroll wfilters">'+[[0,'Toute importance'],[1,IMP[1].n],[3,IMP[3].n]].map(function(f){
-      return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]?IMP[f[0]].c:'ink')+')" data-wf-imph="'+f[0]+'" aria-pressed="'+((wf.impH||0)===f[0])+'">'+f[1]+'</button>';}).join('')+
+      return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]===1?'contenu':f[0]?IMP[f[0]].c:'ink')+')" data-wf-imph="'+f[0]+'" aria-pressed="'+((wf.impH||0)===f[0])+'">'+f[1]+'</button>';}).join('')+
       '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
     h+='<div class="wtoggles"><button type="button" class="ltog" style="--c:var(--isfsc)" data-wf-lm aria-pressed="'+!!wf.lm+'" aria-label="Afficher les liens MCU">↗ MCU</button><button type="button" class="ltog" style="--c:var(--contenu)" data-wf-lh aria-pressed="'+!!wf.lh+'" aria-label="Afficher les liens hors MCU">↗ Hors MCU</button></div>';
     var keep=function(x){return !(wf.hide&&x.t.d)&&(hors?(!wf.impH||impOf(x.t)===wf.impH):(!wf.imp||impOf(x.t)===wf.imp));};

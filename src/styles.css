@@ -557,3 +557,8 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .whero .wstats .wtime b{font:700 22px/1.15 var(--display)}
 .whero .wstats .wtime b small{font-size:15px}
 @media (max-width:420px){.whero .wstats{gap:6px 20px}.whero .wstats .wtime b{font-size:19px}.whero .wstats .wtime b small{font-size:13px}}
+.whero.hors .wstats .wtime.ess b small{color:var(--contenu)}
+/* MCU / Hors MCU : contour plus sobre, à plat, texte en gras */
+.wtabs.seg button{font-weight:700}
+.wtabs.seg button[aria-selected="true"]{background:var(--raise);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--isfsc) 55%,var(--line))}
+.wtabs.seg button[data-wf-grp="hors"][aria-selected="true"]{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--contenu) 55%,var(--line))}
