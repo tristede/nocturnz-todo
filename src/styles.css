@@ -516,3 +516,4 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .soonb{color:var(--isfsc)}
 .wrow.flash{background:color-mix(in srgb,var(--contenu) 16%,transparent);transition:background .4s}
 .grp-h.ed .afterb{flex:none;margin-top:8px}
+.wnote{margin:-6px 0 0;font-size:12px;color:var(--muted)}

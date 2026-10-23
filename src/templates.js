@@ -20,8 +20,9 @@ const DD = ['Daredevil – Saison 1', 'Daredevil – Saison 2', 'Daredevil – S
 export const TEMPLATES = [
   {
     id: 'mcu-endgame',
-    name: 'MCU → Endgame',
-    desc: 'Les phases 1 à 3 jusqu’à Avengers : Endgame, la suite jusqu’à Doomsday, et en parallèle Spider-Man (Sony), X-Men et 4 Fantastiques (Fox), Netflix.',
+    name: 'MCU → Doomsday',
+    aliases: ['MCU → Endgame'],
+    desc: 'Tout le MCU par phase jusqu’à Avengers : Doomsday, et en parallèle Spider-Man (Sony), X-Men et 4 Fantastiques (Fox), Netflix.',
     color: 'perso',
     groups: [
       { name: 'Phase 1', items: [
@@ -50,7 +51,7 @@ export const TEMPLATES = [
         { t: 'Avengers : Infinity War', rel: '2018-04-27', dur: 149, imp: 1 },
         { t: 'Ant-Man et la Guêpe', rel: '2018-07-06', dur: 118, imp: 2 },
         { t: 'Captain Marvel', rel: '2019-03-08', dur: 123, imp: 2 },
-        { t: 'Avengers : Endgame', rel: '2019-04-26', dur: 181, imp: 1, goal: true },
+        { t: 'Avengers : Endgame', rel: '2019-04-26', dur: 181, imp: 1 },
         { t: 'Spider-Man : Far From Home', rel: '2019-07-02', dur: 129, imp: 2 },
       ] },
       { name: 'Phase 4', items: [
@@ -98,7 +99,7 @@ export const TEMPLATES = [
         { t: 'The Punisher : One Last Kill', rel: '2026-05-12', fmt: 'Spécial', imp: 3, lk: ['The Punisher – Saison 1', 'The Punisher – Saison 2'] },
         { t: 'Spider-Man : Brand New Day', rel: '2026-07-31', imp: 2 },
         { t: 'VisionQuest', rel: '2026-10-13', fmt: serie(8), imp: 2 },
-        { t: 'Avengers : Doomsday', rel: '2026-12-18', imp: 1, lk: ['X-Men', 'X-Men 2', 'X-Men : L’Affrontement final'] },
+        { t: 'Avengers : Doomsday', rel: '2026-12-18', imp: 1, goal: true, lk: ['X-Men', 'X-Men 2', 'X-Men : L’Affrontement final'] },
       ] },
       { name: 'Spider-Man (Sony)', side: true, items: [
         L({ t: 'Spider-Man', rel: '2002-05-03', dur: 121, note: LIEN_SPIDEY }),

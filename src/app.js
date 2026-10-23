@@ -204,12 +204,13 @@ export function startApp(store, data, root){
     h+='<section class="card whero"><div class="wh-top"><div><div class="eyebrow">'+(goal?'Objectif':'Progression')+'</div><div class="wh-goal">'+(goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
       '<div class="wbar"><i style="width:'+pct+'%"></i></div>'+
       '<div class="wstats"><div><b>'+seen.length+'<small>/'+G.length+'</small></b><span>vus</span></div><div><b>'+hm(tAll)+'</b><span>pour tout voir</span></div><div><b>'+hm(tEss)+'</b><span>essentiel seulement</span></div></div>'+
+      (left.some(function(x){return !x.t.dur;})?'<p class="wnote">+ '+left.filter(function(x){return !x.t.dur;}).length+' titres sans durée connue (séries, sorties récentes), non comptés.</p>':'')+
       (bonus.length?'<div class="wbonus"><span class="lien">Lien MCU</span> Bonus autres productions : <b>'+bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+'</b> vus · hors progression</div>':'')+
       (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[relDate(next.t.rel),next.t.fmt||'',next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
         (G.length?'<div class="wnext done-all"><b>'+(goal?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
     var miss=tplMissing(s);
     var nNew=miss.filter(function(o){return !o.upd;}).length;
-    if(miss.length)h+='<div class="wmiss"><span>'+(nNew?nNew+' titre'+(nNew>1?'s':'')+' et des infos ajoutés':'Des infos (phases) ajoutées')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Mettre à jour</button></div>';
+    if(miss.length)h+='<div class="wmiss"><span>'+(nNew?nNew+' titre'+(nNew>1?'s':'')+' et des infos ajoutés':'Des infos (phases, objectif, liens) ajoutées')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Mettre à jour</button></div>';
     // deux listes séparées : le MCU (par phase) et, en parallèle, les autres productions liées
     if(wf.grp!=='hors'||!bonus.length)wf.grp='';
     var hors=wf.grp==='hors';
@@ -268,11 +269,11 @@ export function startApp(store, data, root){
   }
   function tplItem(it){var o={id:nid('t'),t:it.t,d:false,imp:it.imp||1};['rel','dur','fmt','cont','note','ph','lk'].forEach(function(k){if(it[k])o[k]=it[k];});if(it.goal)o.goal=true;return o;}
   // Titres du modèle absents du suivi (comparés par titre) : pour compléter un suivi créé avec une ancienne version
-  function tplMissing(s){var tpl=TEMPLATES.filter(function(t){return t.id===s.tpl||(!s.tpl&&t.name===s.name);})[0];if(!tpl)return [];
+  function tplMissing(s){var tpl=TEMPLATES.filter(function(t){return t.id===s.tpl||(!s.tpl&&(t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0));})[0];if(!tpl)return [];
     var have={},where={};s.groups.forEach(function(g){g.tasks.forEach(function(t){have[t.t]=t;where[t.t]=g.name;});});
     var out=[];tpl.groups.forEach(function(g){g.items.forEach(function(it){var t=have[it.t];
       if(!t){out.push({g:g.name,side:!!g.side,it:it});return;}
-      var lacks=['lk','fmt','cont'].some(function(k){return it[k]&&!t[k];});
+      var lacks=['lk','fmt','cont'].some(function(k){return it[k]&&!t[k];})||(!!it.goal!==!!t.goal);
       if(where[it.t]!==g.name||lacks)out.push({g:g.name,side:!!g.side,it:it,upd:t});});});return out;}
   // Crée un suivi (vide ou depuis un modèle) et l'ouvre
   function createWatch(tpl){
@@ -293,14 +294,15 @@ export function startApp(store, data, root){
     if(has('wf-grp')){wf.grp=A('wf-grp');saveWf();render();return;}
     if(has('wfill')){var sc=S.sections.filter(function(c){return c.id===A('wfill');})[0];if(!sc)return;var mm=tplMissing(sc);
       // range chaque titre dans le groupe du modèle (phase / production) sans toucher à ce qui est déjà coché
-      var tpl=TEMPLATES.filter(function(t){return t.id===sc.tpl||(!sc.tpl&&t.name===sc.name);})[0],nAdd=0;
+      var tpl=TEMPLATES.filter(function(t){return t.id===sc.tpl||(!sc.tpl&&(t.name===sc.name||(t.aliases||[]).indexOf(sc.name)>=0));})[0],nAdd=0;
       var grp=function(name,side){var g=sc.groups.filter(function(x){return x.name===name;})[0];if(!g){g={name:name,tasks:[]};sc.groups.push(g);}if(side)g.side=true;return g;};
       if(tpl)tpl.groups.forEach(function(g){grp(g.name,g.side);});
       mm.forEach(function(o){var g=grp(o.g,o.side);
-        if(o.upd){['lk','fmt','cont','ph','note'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});
+        if(o.upd){['lk','fmt','cont','ph','note'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});if(o.it.goal)o.upd.goal=true;else delete o.upd.goal;
           sc.groups.forEach(function(x){var i=x.tasks.indexOf(o.upd);if(i>=0&&x!==g){x.tasks.splice(i,1);g.tasks.push(o.upd);}});return;}
         g.tasks.push(tplItem(o.it));nAdd++;});
       // ordre des groupes comme dans le modèle, groupes vidés retirés
+      if(tpl&&(tpl.aliases||[]).indexOf(sc.name)>=0)sc.name=tpl.name;
       if(tpl){var order=tpl.groups.map(function(g){return g.name;});sc.groups=sc.groups.filter(function(g){return g.tasks.length||order.indexOf(g.name)>=0;}).sort(function(a,b){var ia=order.indexOf(a.name),ib=order.indexOf(b.name);return (ia<0?99:ia)-(ib<0?99:ib);});}
       toast(nAdd?nAdd+' titre'+(nAdd>1?'s':'')+' ajouté'+(nAdd>1?'s':''):'Suivi mis à jour');change();return;}
     if(has('wreset')){var id=A('wreset');if(wreset!==id){wreset=id;render();setTimeout(function(){if(wreset===id){wreset='';render();}},5000);return;}
