@@ -61,6 +61,7 @@ export function createStore(user, { onData, onStatus, admin }) {
   unsubs.push(onSnapshot(doc(db, 'users', me.uid), (s) => {
     profile = s.exists() ? s.data() : null;
     if (profile && profile.pseudo) me.name = profile.pseudo;
+    if (profile && profile.photo !== undefined) me.photo = profile.photo || user.photoURL || '';
     if (!s.exists() && !s.metadata.fromCache && !profileLoaded) bootstrap();
     profileLoaded = true; emit();
   }, err));
@@ -84,6 +85,25 @@ export function createStore(user, { onData, onStatus, admin }) {
   }, err));
   unsubs.push(onSnapshot(query(collection(db, 'access'), where('by', '==', me.uid)), (qs) => {
     club = qs.docs.map((d) => d.data()).filter((x) => x.email !== me.email).sort((a, b) => (a.createdAt?.toMillis?.() || Date.now()) - (b.createdAt?.toMillis?.() || Date.now()));
+    emit();
+  }, err));
+  // Suivi à plusieurs : mes liens (une paire par modèle) et la progression de chaque ami
+  const friends = new Map(), friendProg = new Map(), progUnsubs = new Map();
+  // lecture de la progression d'un ami ; si le lien n'est pas encore confirmé côté serveur, on réessaie
+  function watchProg(key) {
+    progUnsubs.set(key, onSnapshot(doc(db, 'progress', key), (ps) => { friendProg.set(key, ps.exists() ? ps.data() : null); emit(); }, () => {
+      progUnsubs.delete(key);
+      setTimeout(() => { if ([...friends.values()].some((f) => f.uid + '__' + f.tpl === key) && !progUnsubs.has(key)) watchProg(key); }, 1500);
+    }));
+  }
+  unsubs.push(onSnapshot(query(collection(db, 'friends'), where('users', 'array-contains', me.uid)), { includeMetadataChanges: true }, (qs) => {
+    const seen = new Set();
+    qs.forEach((d) => {
+      const f = { id: d.id, ...d.data() }, other = (f.users || []).filter((u) => u !== me.uid)[0], key = other + '__' + f.tpl;
+      f.uid = other; friends.set(d.id, f); seen.add(d.id);
+      if (other && !progUnsubs.has(key) && !d.metadata.hasPendingWrites) watchProg(key);
+    });
+    [...friends.keys()].forEach((id) => { if (!seen.has(id)) { const f = friends.get(id), key = f.uid + '__' + f.tpl; friends.delete(id); const u = progUnsubs.get(key); if (u) u(); progUnsubs.delete(key); friendProg.delete(key); } });
     emit();
   }, err));
   unsubs.push(onSnapshot(doc(db, 'quota', me.uid), (s) => { quota = s.exists() ? s.data().n || 0 : 0; emit(); }, err));
@@ -151,6 +171,8 @@ export function createStore(user, { onData, onStatus, admin }) {
       me, ready: profileLoaded && !!profile,
       S: { sections: build('todo'), buy: build('buy'), focus: ((profile && profile.focus) || []).slice() },
       invites, sent, notifs, prefs: (profile && profile.prefs) || {},
+      friends: [...friends.values()].map((f) => { const pg = friendProg.get(f.uid + '__' + f.tpl) || null, nm = (f.names || {})[f.uid] || {};
+        return { id: f.id, tpl: f.tpl, uid: f.uid, email: nm.e || '', name: (pg && pg.name) || nm.n || 'Ami', photo: (pg && pg.photo) || nm.ph || '', prog: pg }; }),
       club: { admin: !!admin, invited: club, used: quota, left: admin ? Infinity : Math.max(0, CLUB_MAX - quota) },
     };
   }
@@ -289,13 +311,16 @@ export function createStore(user, { onData, onStatus, admin }) {
   }
   async function accept(inv) {
     const b = writeBatch(db);
-    if (inv.type === 'cat') {
+    if (inv.type === 'watch') {
+      const users = [inv.from, me.uid], id = inv.target + '__' + (users[0] < users[1] ? users[0] + '_' + users[1] : users[1] + '_' + users[0]);
+      b.set(doc(db, 'friends', id), { tpl: inv.target, users, names: { [inv.from]: { n: inv.fromName || '', e: inv.fromEmail || '' }, [me.uid]: { n: me.name, e: me.email, ph: me.photo } }, createdAt: serverTimestamp() });
+    } else if (inv.type === 'cat') {
       b.update(doc(db, 'cats', inv.target), { members: arrayUnion(me.uid), ['memberInfo.' + me.uid]: info() });
     } else {
       b.update(doc(db, 'tasks', inv.target), { guests: arrayUnion(me.uid), ['guestInfo.' + me.uid]: info() });
     }
     b.update(doc(db, 'invites', inv.id), { status: 'accepted', answeredAt: serverTimestamp() });
-    b.set(doc(collection(db, 'notifs')), { to: inv.from, from: me.uid, fromName: me.name, text: me.name + ' a rejoint « ' + inv.targetName + ' »', read: false, createdAt: serverTimestamp() });
+    b.set(doc(collection(db, 'notifs')), { to: inv.from, from: me.uid, fromName: me.name, text: me.name + (inv.type === 'watch' ? ' suit « ' + inv.targetName + ' » avec toi' : ' a rejoint « ' + inv.targetName + ' »'), read: false, createdAt: serverTimestamp() });
     await b.commit();
     if (inv.type === 'cat' && profile) {
       const order = { todo: [], buy: [], ...(profile.order || {}) }, k = inv.kind === 'buy' ? 'buy' : 'todo';
@@ -328,6 +353,30 @@ export function createStore(user, { onData, onStatus, admin }) {
     emit();
   }
 
-  function stop() { unsubs.forEach((u) => u()); catUnsubs.forEach((u) => u()); }
-  return { me, commit, invite, cancelInvite, memberStatus, clubInvite, cancelClubInvite, accept, decline, removeMember, removeGuest, readAll, clearNotifs, savePrefs, savePseudo, stop, current: snapshot };
+  // Ma progression sur un modèle : publiée pour mes amis, et gardée sur mon profil (même si le suivi est supprimé)
+  const lastProg = {};
+  function saveProgress(tpl, data) {
+    const full = { ...data, uid: me.uid, tpl, name: me.name, photo: me.photo || '' }, key = stable(full);
+    if (lastProg[tpl] === key) return;
+    lastProg[tpl] = key;
+    setDoc(doc(db, 'progress', me.uid + '__' + tpl), { ...full, updatedAt: serverTimestamp() }).catch(err);
+  }
+  async function myProgress(tpl) {
+    try { const s = await getDoc(doc(db, 'progress', me.uid + '__' + tpl)); return s.exists() ? s.data() : null; } catch (_) { return null; }
+  }
+  const removeFriend = (id) => deleteDoc(doc(db, 'friends', id));
+  // Photo de profil (petite image, ou '' pour reprendre celle du compte Google)
+  async function savePhoto(dataUrl) {
+    me.photo = dataUrl || user.photoURL || '';
+    const b = writeBatch(db);
+    b.set(doc(db, 'users', me.uid), { photo: dataUrl || '' }, { merge: true });
+    cats.forEach((c) => { if (c.members.length > 1) b.update(doc(db, 'cats', c.id), { ['memberInfo.' + me.uid]: info() }); });
+    guestTasks.forEach((t) => b.update(doc(db, 'tasks', t.id), { ['guestInfo.' + me.uid]: info() }));
+    await b.commit().catch(err);
+    Object.keys(lastProg).forEach((k) => { delete lastProg[k]; });
+    emit();
+  }
+
+  function stop() { unsubs.forEach((u) => u()); catUnsubs.forEach((u) => u()); progUnsubs.forEach((u) => u()); }
+  return { me, commit, invite, cancelInvite, memberStatus, clubInvite, cancelClubInvite, accept, decline, removeMember, removeGuest, readAll, clearNotifs, savePrefs, savePseudo, savePhoto, saveProgress, myProgress, removeFriend, stop, current: snapshot };
 }

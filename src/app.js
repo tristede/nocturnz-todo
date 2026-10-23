@@ -76,7 +76,7 @@ export function startApp(store, data, root){
   function render(){
     var every=tasks(),all=every.filter(function(x){return !isWatch(x.s);}),today=dayKey(),N=all.length,D=all.filter(function(x){return x.t.d;}).length;
     var B=flat(S.buy),bOpen=B.filter(function(x){return !x.t.d;}).length;
-    if(['today','all'].concat(S.sections.map(function(s){return s.id;})).indexOf(tab)<0)tab='today';
+    if(['today','all'].concat(S.sections.filter(function(s){return !isWatch(s)||prefs().tools.watch;}).map(function(s){return s.id;})).indexOf(tab)<0)tab='today';
     if(['all'].concat(S.buy.map(function(s){return s.id;})).indexOf(btab)<0)btab='all';
     var foc=focusList(today),focOpen=foc.filter(function(x){return !x.t.d;}).length;
     var h='<header class="top"><div class="top-in"><div class="brand"><h1><span class="h-pre">Nocturnz/</span>'+(mode==='buy'?'wishlist':'todo')+'</h1><div class="right"><span class="status" id="status">'+esc(status)+'</span>'+
@@ -88,7 +88,7 @@ export function startApp(store, data, root){
     if(mode==='todo'){
       h+='<div class="meter"><div class="track"><i style="width:'+(N?D/N*100:0)+'%"></i></div><span>'+D+'/'+N+' faites</span></div>'+
       '<nav class="tabs" aria-label="Vues">'+tabBtn('tab','today','Aujourd’hui','var(--star)',focOpen,tab)+tabBtn('tab','all','Tout','var(--ink)',N-D,tab)+
-      S.sections.map(function(s,i){return tabBtn('tab',s.id,s.name,col(s),every.filter(function(x){return x.s===s&&!x.t.d;}).length,tab,s.virtual?'':'t:'+i,s);}).join('')+'</nav>';
+      S.sections.map(function(s,i){if(isWatch(s)&&!prefs().tools.watch)return '';return tabBtn('tab',s.id,s.name,col(s),every.filter(function(x){return x.s===s&&!x.t.d;}).length,tab,s.virtual?'':'t:'+i,s);}).join('')+'</nav>';
     }else{
       h+='<nav class="tabs" aria-label="Catégories de la wishlist">'+tabBtn('btab','all','Tout','var(--ink)',bOpen,btab)+
       S.buy.map(function(s,i){return tabBtn('btab',s.id,s.name,col(s),B.filter(function(x){return x.s===s&&!x.t.d;}).length,btab,s.virtual?'':'b:'+i,s);}).join('')+'</nav>';
@@ -171,7 +171,7 @@ export function startApp(store, data, root){
   }
   /* ---------- Suivi (watchlist) : progression vers un objectif ---------- */
   // deux niveaux : l'ancien « Mieux de voir » (2) compte comme « À regarder »
-  var IMP={1:{n:'À regarder',c:'oasis'},3:{n:'Tu peux skip',c:'later'}};
+  var IMP={1:{n:'À voir',c:'oasis'},3:{n:'À skip',c:'later'}};
   function impOf(t){var i=t.imp||1;return i===2?1:i;}
   var wf={imp:0,hide:false,grp:'',lm:true,lh:true};try{var wfs=JSON.parse(localStorage.getItem('wf')||'null');if(wfs)wf=wfs;}catch(_){}
   if(wf.imp===2)wf.imp=1;if(wf.lm===undefined)wf.lm=true;if(wf.lh===undefined)wf.lh=true;
@@ -182,23 +182,25 @@ export function startApp(store, data, root){
   function relDate(k){if(!k)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(k))return k.slice(0,4);return new Date(k+'T12:00').toLocaleDateString('fr-BE',{day:'numeric',month:'short',year:'numeric'});}
   function byRel(a,b){return (a.t.rel||'9999')<(b.t.rel||'9999')?-1:(a.t.rel||'9999')>(b.t.rel||'9999')?1:0;}
   function impTag(i,side){var k=i===2?1:(i||1),m=IMP[k];return m?'<span class="imp" style="--c:var(--'+(side&&k===1?'contenu':m.c)+')">'+m.n+'</span>':'';}
+  function friendDots(t,ctx){var F=(ctx&&ctx.fr)||[];var who=F.filter(function(f){return f.prog&&f.prog.seen&&f.prog.seen[t.t]!==undefined;});
+    return who.length?'<span class="fdots">'+who.slice(0,4).map(function(f){return '<i title="'+esc(f.name)+' l’a vu">'+(f.photo?'<img src="'+esc(f.photo)+'" alt="">':esc(initials(f.name)))+'</i>';}).join('')+'</span>':'';}
   function wrow(x,n,ctx){
     var t=x.t,m=[];
     // déjà vu : version compacte, titre + année seulement
     if(t.d)return '<li class="task wrow done" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'" checked aria-label="Marquer comme pas vu : '+esc(t.t)+'">'+
-      '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.rel?' <span class="wyear">'+yr(t.rel)+'</span>':'')+'</span></button></li>';
+      '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.rel?' <span class="wyear">'+yr(t.rel)+'</span>':'')+'</span></button>'+friendDots(t,ctx)+'</li>';
     if(t.rel)m.push('<span class="reld">'+relDate(t.rel)+'</span>');if(t.fmt)m.push(esc(t.fmt));else if(t.dur)m.push(hm(t.dur));
     ctx=ctx||{L:[],back:{}};var today=new Date().toISOString().slice(0,10),badge='';
     if(t.rel&&t.rel>today)badge='<span class="soonb">À venir</span>';
     var find2=function(n){return ctx.L.filter(function(y){return y.t.t===n;})[0];};
     var pre=wf.lm?(t.pre||[]).map(find2).filter(Boolean):[];
-    var links=wf.lh?(t.lk||[]).map(find2).filter(Boolean).concat(ctx.back[t.t]||[]):[];
+    var links=wf.lh?(t.lk||[]).map(find2).filter(function(y){return y&&impOf(y.t)!==3;}).concat(ctx.back[t.t]||[]):[];
     var chips=function(L,cls){return L.map(function(y){return '<button type="button" class="wlink '+cls+(y.t.d?' seen':'')+'" data-wlink="'+y.t.id+'">'+esc(y.t.t)+'</button>';}).join('');};
     return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+(links.length||pre.length?' haslinks':'')+'" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme vu : '+esc(t.t)+'">'+
       '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.goal?' <span class="goalb">Objectif</span>':'')+'</span>'+
-      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp,!!t.cont)+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+
+      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp,!!t.cont)+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+friendDots(t,ctx)+
       (pre.length?'<div class="wlinks" aria-label="Titres MCU à voir avant">'+chips(pre,'pre')+'</div>':'')+
       (links.length?'<div class="wlinks" aria-label="'+(t.cont?'Titres MCU liés':'Titres hors MCU liés')+'">'+chips(links,'hors')+'</div>':'')+'</li>';
   }
@@ -206,7 +208,7 @@ export function startApp(store, data, root){
     var si=S.sections.indexOf(s),L=every.filter(function(x){return x.s===s;}).sort(byRel);
     var side=function(g){return !!g.side||(g.tasks.length>0&&g.tasks.every(function(t){return t.cont;}));};
     var goal=L.filter(function(x){return x.t.goal;})[0],main=L.filter(function(x){return !side(x.g);}),bonus=L.filter(function(x){return side(x.g);});
-    var ctx={goal:goal,L:L,back:{}};main.forEach(function(x){(x.t.lk||[]).forEach(function(n){(ctx.back[n]=ctx.back[n]||[]).push(x);});});
+    var ctx={goal:goal,L:L,back:{},fr:[]};main.forEach(function(x){(x.t.lk||[]).forEach(function(n){(ctx.back[n]=ctx.back[n]||[]).push(x);});});
     // le bloc de progression suit l'onglet : MCU (jusqu'à l'objectif) ou liste Hors MCU
     if(wf.grp!=='hors'||!bonus.length)wf.grp='';
     var hors=wf.grp==='hors';
@@ -215,8 +217,11 @@ export function startApp(store, data, root){
     var ess=left.filter(function(x){return impOf(x.t)===1;}),pct=G.length?Math.round(seen.length/G.length*100):0;
     var tAll=left.reduce(function(a,x){return a+(x.t.dur||0);},0),tEss=ess.reduce(function(a,x){return a+(x.t.dur||0);},0);
     var fimp=hors?(wf.impH||0):wf.imp,next=left.filter(function(x){var i=impOf(x.t);return fimp?i===fimp:i!==3;})[0]||left[0];
-    var h='<div class="pagehead" style="--c:'+col(s)+'"><h2><input class="gname pname inl" type="text" value="'+esc(s.name)+'" data-ck="t" data-cs="'+si+'" enterkeyhint="done" autocomplete="off" aria-label="Renommer le suivi"></h2>'+shareBtn(s,'t')+'</div>';
-    h+='<section class="card whero'+(hors?' hors':'')+'"><div class="wh-top"><div><div class="wh-goal">'+(hors?'Hors MCU':goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
+    var h='<div class="pagehead" style="--c:'+col(s)+'"><h2><input class="gname pname inl" type="text" value="'+esc(s.name)+'" data-ck="t" data-cs="'+si+'" enterkeyhint="done" autocomplete="off" aria-label="Renommer le suivi"></h2></div>';
+    var tplId=isTplWatch(s)?(s.tpl||(TEMPLATES.filter(function(t){return t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0;})[0]||{}).id):'';
+    var fr=tplId?D.friends.filter(function(f){return f.tpl===tplId;}):[];ctx.fr=fr;
+    var shareB='<button type="button" class="wshare" data-wshare="'+s.id+'" aria-label="Partager">'+PEOPLE+(fr.length?'<span>'+fr.length+'</span>':'')+'</button>';
+    h+='<section class="card whero'+(hors?' hors':'')+'"><div class="wh-top">'+shareB+'<div><div class="wh-goal">'+(hors?'Hors MCU':goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
       '<div class="wbar'+(hors?' hors':'')+'"><i style="width:'+pct+'%"></i></div>'+
       (function(){
         // temps vu / temps total, et la même chose sans les « Tu peux skip »
@@ -225,11 +230,24 @@ export function startApp(store, data, root){
         var ess=wf.tm==='ess',T=ess?E:G;
         // compteur de titres : interrupteur à part (wf.tc), même principe
         var cE=wf.tc==='ess',C=cE?E:G,CS=C.filter(function(x){return x.t.d;});
-        return '<div class="wstats"><button type="button" class="wtime'+(cE?' ess':'')+'" data-wcount aria-label="'+(cE?'Titres à regarder vus':'Titres vus, skip compris')+'"><b>'+CS.length+'<small>/'+C.length+'</small></b></button>'+
+        return '<div class="wstats"><button type="button" class="wtime'+(cE?' ess':'')+'" data-wcount aria-label="'+(cE?'Titres « à voir » vus':'Titres vus, skip compris')+'"><b>'+CS.length+'<small>/'+C.length+'</small></b></button>'+
           '<button type="button" class="wtime'+(ess?' ess':'')+'" data-wtime aria-label="'+(ess?'Temps sans les skip (toucher pour le temps total)':'Temps total, skip compris (toucher pour le temps sans les skip)')+'"><b>'+hm(sum(T.filter(function(x){return x.t.d;})))+'<small>/'+hm(sum(T))+'</small></b></button></div>';
       })()+
+      '<!--friends-->'+
       (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[relDate(next.t.rel),next.t.fmt||'',next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
-        (G.length?'<div class="wnext done-all"><b>'+(goal&&!hors?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
+        (G.length?'<div class="wnext done-all"><b>'+(goal&&!hors?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'<!--favs--></section>';
+    // amis : juste leurs photos, qui dépassent du bas de la carte ; un toucher ouvre leur fiche
+    h=h.replace('<!--friends-->','');
+    if(tplId&&fr.length)h=h.replace('<!--favs-->','<div class="wfavs">'+fr.map(function(f){var p=f.prog||{};
+      return '<button type="button" class="wfav" data-wfriend="'+esc(f.id)+'" aria-label="'+esc(f.name)+(p.pct!=null?' : '+p.pct+' %':'')+'">'+avatar({n:f.name,ph:f.photo})+'</button>';}).join('')+'</div>');
+    if(tplId){
+      var seenMap={},vhMap={},lastT=null;L.forEach(function(x){if(x.t.d){seenMap[x.t.t]=x.t.at||'';}if(x.t.vh&&x.t.vh.length){vhMap[x.t.t]=x.t.vh.slice(-5);var l=x.t.vh[x.t.vh.length-1];if(!lastT||l>lastT.at)lastT={t:x.t.t,at:l};}});
+      var mainAll=main.filter(function(x){return !goal||(x.t.rel||'')<=(goal.t.rel||'9999');});
+      store.saveProgress(tplId,{pct:mainAll.length?Math.round(mainAll.filter(function(x){return x.t.d;}).length/mainAll.length*100):0,
+        nSeen:mainAll.filter(function(x){return x.t.d;}).length,nTotal:mainAll.length,hSeen:bonus.filter(function(x){return x.t.d;}).length,hTotal:bonus.length,
+        next:(main.filter(function(x){return !x.t.d&&impOf(x.t)!==3;})[0]||{t:{}}).t.t||'',last:lastT,seen:seenMap,vh:vhMap});
+    }
+    h=h.replace('<!--favs-->','');
     var miss=tplMissing(s),fromTpl=!!(s.tpl||TEMPLATES.some(function(t){return t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0;}));
     var nNew=miss.filter(function(o){return !o.upd&&!o.rm;}).length;
     if(miss.length)h+='<div class="wmiss"><span>'+(nNew?nNew+' titre'+(nNew>1?'s':'')+' et des infos ajoutés':'Des infos (noms des groupes, objectif, liens « à voir avant ») ajoutées')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Mettre à jour</button></div>';
@@ -265,6 +283,34 @@ export function startApp(store, data, root){
     return h;
   }
   var wreset='';
+  /* ---------- Suivre à plusieurs : chacun son suivi, on voit la progression de ses amis ---------- */
+  function tplOf(s){return TEMPLATES.filter(function(t){return t.id===s.tpl||(!s.tpl&&(t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0));})[0]||null;}
+  function openWShare(s){var tpl=tplOf(s);if(!tpl){openShare('cat',s.id);return;}sh={kind:'wshare',tpl:tpl.id,tplName:tpl.name,email:'',err:'',sentTo:''};renderWShare();}
+  function renderWShare(){
+    var F=D.friends.filter(function(f){return f.tpl===sh.tpl;}),mine=D.sent.filter(function(v){return v.type==='watch'&&v.target===sh.tpl&&v.status!=='accepted';}),h='';
+    var linked=D.sent.filter(function(v){return v.type==='watch'&&v.target===sh.tpl;}).map(function(v){return v.toEmail;}).concat(D.invites.filter(function(v){return v.type==='watch'&&v.target===sh.tpl;}).map(function(v){return v.fromEmail;}));
+    if(F.length)h+='<div class="set">'+F.map(function(f){var p=f.prog||{};return '<div class="row">'+avatar({n:f.name,ph:f.photo})+'<span class="rl"><b>'+esc(f.name)+'</b><small>'+(p.pct!=null?p.pct+' % du MCU':'pas encore commencé')+'</small></span><button type="button" class="tbtn danger" data-wunfriend="'+esc(f.id)+'">Retirer</button></div>';}).join('')+'</div>';
+    if(mine.length)h+='<div class="set">'+mine.map(function(v){return '<div class="row"><span class="rl"><b>'+esc(v.toEmail)+'</b><small>'+(v.status==='declined'?'a refusé':'invitation en attente')+'</small></span><button type="button" class="xbtn sm" data-sh-cancel="'+esc(v.id)+'" aria-label="Annuler l’invitation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button></div>';}).join('')+'</div>';
+    h+=contactChips(F.map(function(f){return f.email;}).concat(linked).filter(Boolean).map(function(e){return e.toLowerCase();}));
+    h+='<div class="set"><div class="row inv"><input type="email" id="ws-email" inputmode="email" autocomplete="off" placeholder="Inviter par email" value="'+esc(sh.email)+'"><button type="button" class="tbtn" data-ws-invite>Inviter</button></div></div>'+
+      (sh.err?'<p class="err">'+esc(sh.err)+'</p>':'')+(sh.sentTo?'<p class="hint flush">Invitation envoyée à '+esc(sh.sentTo)+' : elle apparaît dans sa cloche 🔔.</p>':'');
+    sheetRoot.innerHTML=edSheet('Partager',h);
+  }
+  function wsInvite(){var e=sheetRoot.querySelector('#ws-email'),email=(e?e.value:'').trim().toLowerCase();sh.email=email;sh.err='';sh.sentTo='';
+    if(!/^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/.test(email)){sh.err='Adresse email invalide';renderWShare();return;}
+    store.memberStatus(email).then(function(m){if(m==='none'){sh.err=email+' n’a pas de compte sur l’appli.';renderWShare();return;}
+      return store.invite('watch',sh.tpl,email,sh.tplName,'todo').then(function(){sh.sentTo=email;sh.email='';renderWShare();});})
+      .catch(function(er){sh.err=er.message||'Échec';renderWShare();});}
+  function openFriend(id){sh={kind:'friend',id:id};renderFriend();}
+  function renderFriend(){
+    var f=D.friends.filter(function(x){return x.id===sh.id;})[0];if(!f){closeSheet();return;}var p=f.prog||{},seen=p.seen||{},tpl=TEMPLATES.filter(function(t){return t.id===f.tpl;})[0],h='';
+    h+='<div class="set"><div class="row acct">'+avatar({n:f.name,ph:f.photo})+'<span class="rl"><b>'+esc(f.name)+'</b><small>'+(p.nSeen!=null?p.nSeen+'/'+p.nTotal+' titres MCU · '+(p.hSeen||0)+'/'+(p.hTotal||0)+' hors MCU':'pas encore commencé')+'</small></span><span class="wh-pct sm">'+(p.pct||0)+'<small>%</small></span></div></div>';
+    h+='<div class="wbar"><i style="width:'+(p.pct||0)+'%"></i></div>';
+    if(p.last||p.next)h+='<div class="set">'+(p.last?'<div class="row"><span class="rk">Dernier vu</span><span class="rl right">'+esc(p.last.t)+(p.last.at?' · '+fdate(p.last.at):'')+'</span></div>':'')+(p.next?'<div class="row"><span class="rk">Prochain</span><span class="rl right">'+esc(p.next)+'</span></div>':'')+'</div>';
+    if(tpl){h+=tpl.groups.map(function(g){var vus=g.items.filter(function(it){return seen[it.t]!==undefined;});if(!vus.length)return '';
+      return '<section class="sec"><h4 class="sec-h">'+esc(g.name)+'<span>'+vus.length+'/'+g.items.length+'</span></h4><div class="fseen">'+vus.map(function(it){return '<span>'+esc(it.t)+'</span>';}).join('')+'</div></section>';}).join('');}
+    sheetRoot.innerHTML=edSheet(esc(f.name),h);
+  }
   function openWatch(id){var x=find(id);if(!x)return;var t=x.t;sh={kind:'watch',id:id,text:t.t,rel:t.rel||'',dur:t.dur||'',imp:impOf(t),goal:!!t.goal,d:!!t.d,note:t.note||'',confirm:false};renderWatch();}
   function syncWatch(){var q=function(i){return sheetRoot.querySelector(i);};['text','rel','dur','note'].forEach(function(k){var e=q('#wt-'+k);if(e)sh[k]=e.value;});var g=q('#wt-goal');if(g)sh.goal=g.checked;var d=q('#wt-d');if(d)sh.d=d.checked;}
   function renderWatch(){
@@ -306,10 +352,17 @@ export function startApp(store, data, root){
       groups:tpl?tpl.groups.map(function(g){var o={name:g.name,tasks:g.items.map(tplItem)};if(g.side)o.side=true;return o;}):[{name:'Titres',tasks:[]}]};
     S.sections.push(s);mode='todo';tab=s.id;try{localStorage.setItem('tab2',tab);localStorage.setItem('mode2','todo');}catch(_){}
     change();window.scrollTo(0,0);toast(tpl?'Suivi « '+tpl.name+' » créé':'Suivi créé');
+    if(tpl)store.myProgress(tpl.id).then(function(pg){if(!pg||!pg.seen)return;var n=0;
+      s.groups.forEach(function(g){g.tasks.forEach(function(t){if(pg.seen[t.t]!==undefined){t.d=true;t.at=pg.seen[t.t]||dayKey();t.vh=(pg.vh&&pg.vh[t.t])||[t.at];n++;}});});
+      if(n){toast('Progression reprise : '+n+' titre'+(n>1?'s':'')+' déjà vu'+(n>1?'s':''));change();}});
   }
   document.addEventListener('click',function(e){
-    var b=e.target.closest&&e.target.closest('[data-wlink],[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wtime],[data-wcount],[data-wf-imph],[data-wf-lm],[data-wf-lh],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
+    var b=e.target.closest&&e.target.closest('[data-wshare],[data-wfriend],[data-wunfriend],[data-ws-invite],[data-wlink],[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wtime],[data-wcount],[data-wf-imph],[data-wf-lm],[data-wf-lh],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
     function A(n){return b.getAttribute('data-'+n);}function has(n){return b.hasAttribute('data-'+n);}
+    if(has('wshare')){var ss=S.sections.filter(function(c){return c.id===A('wshare');})[0];if(ss)openWShare(ss);return;}
+    if(has('wfriend')){openFriend(A('wfriend'));return;}
+    if(has('wunfriend')){if(!b.dataset.c){b.dataset.c=1;b.textContent='Sûr ?';return;}store.removeFriend(A('wunfriend')).then(function(){toast('Retiré');});return;}
+    if(has('ws-invite')){wsInvite();return;}
     if(has('wlink')){var lx=find(A('wlink'));if(!lx)return;var sd=!!lx.g.side||lx.g.tasks.every(function(t){return t.cont;});wf.grp=sd?'hors':'';wf.hide=false;wf.imp=0;saveWf();render();
       var el=document.getElementById('wr-'+lx.t.id);if(el){try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){el.scrollIntoView();}el.classList.add('flash');setTimeout(function(){el.classList.remove('flash');},1600);}return;}
     if(has('wopen')){openWatch(A('wopen'));return;}
@@ -449,8 +502,8 @@ export function startApp(store, data, root){
   function tagChips(k,attr,cur){return '<div class="chipscroll">'+keepChip(k,attr,cur)+tagList(k).map(function(tg){return '<button type="button" class="chipb tg" style="--c:var(--'+tg.c+')" data-'+attr+'="'+tg.id+'" aria-pressed="'+(cur===tg.id)+'">'+esc(tg.n)+'</button>';}).join('')+'</div>';}
   function wrap(title,inner){return '<div class="backdrop" data-close></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title"><div class="grab"></div><h3 id="sh-title">'+title+'</h3>'+inner+'</div>';}
   function closeSheet(){sh=null;sheetRoot.innerHTML='';var f=app.querySelector('.fab');if(f)f.focus();flush();}
-  function rerender(){if(sh.kind==='watch')renderWatch();else if(sh.kind==='share')renderShare();else if(sh.kind==='bell')renderBell();else if(sh.kind==='account')renderAccount();else if(sh.kind==='task')renderTask();else if(sh.kind==='buy')renderBuy();else if(sh.kind==='rep')renderRep();else renderManage();}
-  function sync(){if(!sh)return;if(['rep','share','bell','account','watch'].indexOf(sh.kind)>=0)return;if(sh.kind==='manage')syncManage();else{syncCommon();if(sh.kind==='task'){var d=sheetRoot.querySelector('#sh-date');if(d)sh.due=d.value;var f=sheetRoot.querySelector('#sh-focus');if(f)sh.focus=f.checked;}
+  function rerender(){if(sh.kind==='wshare')renderWShare();else if(sh.kind==='friend')renderFriend();else if(sh.kind==='watch')renderWatch();else if(sh.kind==='share')renderShare();else if(sh.kind==='bell')renderBell();else if(sh.kind==='account')renderAccount();else if(sh.kind==='task')renderTask();else if(sh.kind==='buy')renderBuy();else if(sh.kind==='rep')renderRep();else renderManage();}
+  function sync(){if(!sh)return;if(['rep','share','bell','account','watch','wshare','friend'].indexOf(sh.kind)>=0)return;if(sh.kind==='manage')syncManage();else{syncCommon();if(sh.kind==='task'){var d=sheetRoot.querySelector('#sh-date');if(d)sh.due=d.value;var f=sheetRoot.querySelector('#sh-focus');if(f)sh.focus=f.checked;}
     else ['price','link','note'].forEach(function(k){var el=sheetRoot.querySelector('#bs-'+k);if(el)sh[k]=el.value;});}}
 
   /* Tâche */
@@ -699,11 +752,11 @@ export function startApp(store, data, root){
   // Les mises à jour venues d'ailleurs (autre appareil, personne qui partage) attendent la fin d'une saisie
   function busy(){var ae=document.activeElement;return isDragging()||!!cm||(sh&&['task','buy','rep','manage','watch'].indexOf(sh.kind)>=0)||!!(ae&&ae.classList&&(ae.classList.contains('qadd')||ae.classList.contains('inl')||ae.classList.contains('gname')));}
   function apply(d){
-    pending=null;var same=JSON.stringify(d.S)===JSON.stringify(S),soc=JSON.stringify([d.invites,d.sent,d.notifs.map(function(n){return n.id+n.read;}),d.club])!==JSON.stringify([D.invites,D.sent,D.notifs.map(function(n){return n.id+n.read;}),D.club]);
+    pending=null;var same=JSON.stringify(d.S)===JSON.stringify(S),soc=JSON.stringify([d.invites,d.sent,d.notifs.map(function(n){return n.id+n.read;}),d.club,d.friends])!==JSON.stringify([D.invites,D.sent,D.notifs.map(function(n){return n.id+n.read;}),D.club,D.friends]);
     var pc=JSON.stringify(d.prefs||{})!==JSON.stringify(D.prefs||{});
     D=d;if(!same)S=d.S;if(pc){applyPrefs();same=false;}
     if(!same||soc)render();
-    if(sh&&['share','bell','account'].indexOf(sh.kind)>=0)rerender();
+    if(sh&&['share','bell','account','wshare','friend'].indexOf(sh.kind)>=0)rerender();
   }
   function flush(){setTimeout(function(){if(pending&&!busy())apply(store.current());},60);}
   document.addEventListener('focusout',flush);
@@ -808,6 +861,9 @@ export function startApp(store, data, root){
         (v.status==='declined'?'<button type="button" class="mini" data-sh-again="'+esc(v.toEmail)+'">Relancer</button>':'')+
         '<button type="button" class="mini danger" data-sh-cancel="'+esc(v.id)+'" aria-label="Annuler l’invitation">×</button></li>';}).join('')+'</ul></div>';
     if(isMember){
+      var already=(sec.members||[]).map(function(u){return ((sec.memberInfo||{})[u]||{}).e;}).concat(mine.map(function(v){return v.toEmail;}));
+      if(sh.type==='task'&&tg.x)already=already.concat(Object.keys(tg.x.t.guestInfo||{}).map(function(u){return (tg.x.t.guestInfo[u]||{}).e;}));
+      h+=contactChips(already.filter(Boolean).map(function(e){return e.toLowerCase();}));
       h+='<div class="field"><label class="lbl" for="sh-email">Inviter par email (compte Google)</label><div class="invrow"><input type="email" id="sh-email" inputmode="email" autocomplete="email" placeholder="prenom@gmail.com" value="'+esc(sh.email)+'"><button type="button" class="btn" data-sh-invite>Inviter</button></div>'+
         (sh.err?'<p class="err">'+esc(sh.err)+'</p>':'')+'</div>';
       if(sh.needClub)h+='<div class="sent warn"><p><b>'+esc(sh.needClub)+'</b> n’a pas de compte sur l’appli. '+(D.club.admin?'Tu peux l’inviter.':D.club.left>0?'Tu peux l’inviter : il te reste '+D.club.left+' invitation'+(D.club.left>1?'s':'')+'.':'Tu as utilisé tes 2 invitations. Vérifie l’adresse, ou demande à quelqu’un d’autre de l’inviter.')+'</p>'+
@@ -819,6 +875,15 @@ export function startApp(store, data, root){
     sheetRoot.innerHTML=wrap((sh.type==='cat'?'Partager « ':'Partager la tâche « ')+esc(tg.name)+' »',h);
     if(first){var e=sheetRoot.querySelector('#sh-email');if(e&&matchMedia('(pointer:fine)').matches)e.focus();}
   }
+  // Contacts : les personnes avec qui on partage déjà quelque chose, pour les retrouver en un toucher
+  function contacts(){var out={},add=function(e,n,ph){e=String(e||'').toLowerCase();if(!e||e===ME.email)return;var o=out[e]||(out[e]={e:e,n:'',ph:''});if(n&&!o.n)o.n=n;if(ph&&!o.ph)o.ph=ph;};
+    S.sections.concat(S.buy).forEach(function(c){Object.keys(c.memberInfo||{}).forEach(function(u){var i=c.memberInfo[u]||{};add(i.e,i.n,i.ph);});});
+    (D.friends||[]).forEach(function(f){add(f.email,f.name,f.photo);});
+    (D.sent||[]).forEach(function(v){if(v.status==='accepted')add(v.toEmail);});
+    ((D.club&&D.club.invited)||[]).forEach(function(v){if(v.joined)add(v.email,v.name);});
+    return Object.keys(out).map(function(k){return out[k];}).sort(function(a,b){return (a.n||a.e).localeCompare(b.n||b.e);});}
+  function contactChips(skip){var L=contacts().filter(function(c){return skip.indexOf(c.e)<0;});if(!L.length)return '';
+    return '<section class="sec"><h4 class="sec-h">Contacts</h4><div class="chipscroll">'+L.map(function(c){return '<button type="button" class="chipb contact" data-contact="'+esc(c.e)+'">'+avatar({n:c.n||c.e,ph:c.ph})+esc(c.n||c.e.split('@')[0])+'</button>';}).join('')+'</div></section>';}
   function inviteMsg(){var tg=shareTarget();return 'Je t’ai invité·e sur « '+(tg?tg.name:'ma liste')+' » dans ma Todo. Ouvre '+shareLink()+' et connecte-toi avec '+sh.sentTo+' : l’invitation est dans la cloche 🔔';}
   // Partager avec quelqu'un hors du club = l'inviter aussi au club (1 des 2 places), après confirmation
   function doInvite(email,withClub){
@@ -843,7 +908,7 @@ export function startApp(store, data, root){
   function renderBell(){
     var h='';
     if(D.invites.length)h+='<div class="field"><span class="lbl">Invitations</span><ul class="people">'+D.invites.map(function(v){
-      return '<li class="inv">'+avatar({n:v.fromName})+'<span class="pp"><b>'+esc(v.fromName||v.fromEmail)+'</b><small>t’invite sur '+(v.type==='cat'?(v.kind==='buy'?'la wishlist':'la liste'):'la tâche')+' « '+esc(v.targetName)+' »</small></span>'+
+      return '<li class="inv">'+avatar({n:v.fromName})+'<span class="pp"><b>'+esc(v.fromName||v.fromEmail)+'</b><small>'+(v.type==='watch'?'t’invite à suivre « '+esc(v.targetName)+' » ensemble':'t’invite sur '+(v.type==='cat'?(v.kind==='buy'?'la wishlist':'la liste'):'la tâche')+' « '+esc(v.targetName)+' »')+'</small></span>'+
         '<span class="invb"><button type="button" class="mini" data-inv-no="'+esc(v.id)+'">Refuser</button><button type="button" class="mini ok" data-inv-ok="'+esc(v.id)+'">Accepter</button></span></li>';}).join('')+'</ul></div>';
     h+='<div class="field"><span class="lbl">Activité</span>'+(D.notifs.length?'<ul class="notes-l">'+D.notifs.slice(0,40).map(function(n){
       return '<li class="'+(n.read?'':'new')+'"><span>'+esc(n.text)+'</span><small>'+ago(n.createdAt)+'</small></li>';}).join('')+'</ul>':'<p class="hint flush">Rien pour l’instant. Ici s’afficheront les invitations et ce que font les personnes avec qui tu partages.</p>')+'</div>';
@@ -886,7 +951,8 @@ export function startApp(store, data, root){
   function renderAccount(){
     var P=prefs(),C=D.club,h='';
     h+='<div class="pf-top"><h3 id="sh-title">Profil</h3><button type="button" class="xbtn" data-close aria-label="Fermer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>';
-    h+='<div class="set"><div class="row acct">'+avatar({n:ME.name,e:ME.email,ph:ME.photo})+'<span class="rl"><b>'+esc(ME.name)+'</b><small>'+esc(ME.email)+'</small></span></div>'+
+    h+='<div class="set"><div class="row acct"><label class="avpick" for="ph-file" aria-label="Changer la photo de profil">'+avatar({n:ME.name,e:ME.email,ph:ME.photo})+'<i>✎</i></label><input type="file" id="ph-file" accept="image/*" hidden>'+
+      '<span class="rl"><b>'+esc(ME.name)+'</b><small>'+esc(ME.email)+'</small></span>'+(D.prefs&&ME.photo&&/^data:/.test(ME.photo)?'<button type="button" class="tbtn" data-ph-reset>Photo Google</button>':'')+'</div>'+
       '<label class="row pseudo" for="pseudo"><span class="rk">Pseudo</span><input type="text" id="pseudo" class="inl" maxlength="30" autocomplete="nickname" enterkeyhint="done" value="'+esc(ME.name)+'" placeholder="Ton pseudo"></label></div>'+
       '<p class="sec-note">Visible par les personnes avec qui tu partages. Leurs tâches taguées apparaissent sous leur pseudo.</p>';
     h+='<section class="sec"><h4 class="sec-h">Apparence</h4><div class="themegrid" role="radiogroup" aria-label="Thème">'+THEMES.map(function(t){
@@ -909,6 +975,13 @@ export function startApp(store, data, root){
     sheetRoot.innerHTML='<div class="backdrop" data-close></div><div class="sheet pf" role="dialog" aria-modal="true" aria-labelledby="sh-title"><div class="grab"></div>'+h+'</div>';
   }
   function editRef(P){var p=(sh.edit||'').split(':'),L=P.tags[p[0]];if(!L)return null;for(var i=0;i<L.length;i++)if(L[i].id===+p[1])return {k:p[0],L:L,i:i,t:L[i]};return null;}
+  // photo choisie : recadrée en carré et réduite (128 px) sur l'appareil, puis enregistrée
+  document.addEventListener('change',function(e){if(e.target.id!=='ph-file'||!e.target.files[0])return;var f=e.target.files[0],img=new Image(),url=URL.createObjectURL(f);
+    img.onload=function(){var z=128,c=document.createElement('canvas');c.width=c.height=z;var k=Math.min(img.width,img.height),sx=(img.width-k)/2,sy=(img.height-k)/2;
+      c.getContext('2d').drawImage(img,sx,sy,k,k,0,0,z,z);URL.revokeObjectURL(url);var data=c.toDataURL('image/jpeg',.82);
+      store.savePhoto(data).then(function(){toast('Photo mise à jour');render();if(sh&&sh.kind==='account')renderAccount();});};
+    img.onerror=function(){toast('Image illisible');};img.src=url;});
+  document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('[data-ph-reset]')){store.savePhoto('').then(function(){toast('Photo Google reprise');render();if(sh&&sh.kind==='account')renderAccount();});}});
   function watchButtons(){return '<button type="button" class="row" data-m-watch=""><span class="plusc">+</span><span class="rl"><b>Nouveau suivi</b><small>Liste vide à remplir</small></span></button>'+
     TEMPLATES.map(function(t){return '<button type="button" class="row" data-m-watch="'+t.id+'"><span class="plusc">★</span><span class="rl"><b>Modèle : '+esc(t.name)+'</b><small>'+esc(t.desc)+'</small></span></button>';}).join('');}
   document.addEventListener('change',function(e){if(sh&&sh.kind==='account'&&e.target.id==='tool-watch'){var P=prefs();P.tools.watch=e.target.checked;savePrefs(P);renderAccount();}});
@@ -961,11 +1034,16 @@ export function startApp(store, data, root){
     if(has('sh-copy')){var msg=inviteMsg();(navigator.clipboard?navigator.clipboard.writeText(msg):Promise.reject()).then(function(){toast('Message copié');},function(){prompt('Copie ce message :',msg);});return;}
     if(has('sh-send')){navigator.share({title:'Invitation Todo',text:inviteMsg()}).catch(function(){});return;}
     if(has('inv-ok')||has('inv-no')){var v=D.invites.filter(function(x){return x.id===(A('inv-ok')||A('inv-no'));})[0];if(!v)return;b.disabled=true;
-      (has('inv-ok')?store.accept(v).then(function(){toast('Ajouté : '+v.targetName);if(v.type==='cat'){if(v.kind==='buy'){mode='buy';btab=v.target;}else{mode='todo';tab=v.target;}}}):store.decline(v)).catch(fail);return;}
+      (has('inv-ok')?store.accept(v).then(function(){toast('Ajouté : '+v.targetName);
+        if(v.type==='watch'){var P=prefs();if(!P.tools.watch){P.tools.watch=true;savePrefs(P);}var have=S.sections.filter(function(c){var t=tplOf(c);return isWatch(c)&&t&&t.id===v.target;})[0];
+          if(have){mode='todo';tab=have.id;closeSheet();render();}else{var tp=TEMPLATES.filter(function(t){return t.id===v.target;})[0];if(tp){closeSheet();createWatch(tp);}}return;}if(v.type==='cat'){if(v.kind==='buy'){mode='buy';btab=v.target;}else{mode='todo';tab=v.target;}}}):store.decline(v)).catch(fail);return;}
     if(has('bell-clear')){store.clearNotifs();return;}
     if(has('install')&&installEvt){installEvt.prompt();installEvt.userChoice.finally(function(){installEvt=null;if(sh)renderAccount();});return;}
     if(has('logout')){store.signOut();return;}
   });
+  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-contact]');if(!b||!sh)return;var em=b.getAttribute('data-contact');
+    if(sh.kind==='share'){doInvite(em);return;}
+    if(sh.kind==='wshare'){var i=sheetRoot.querySelector('#ws-email');if(i)i.value=em;wsInvite();return;}});
   document.addEventListener('keydown',function(e){if(sh&&sh.kind==='share'&&e.target.id==='sh-email'&&e.key==='Enter'){e.preventDefault();doInvite();}
     if(sh&&sh.kind==='account'&&e.target.id==='club-email'&&e.key==='Enter'){e.preventDefault();var bt=sheetRoot.querySelector('[data-club-invite]');if(bt)bt.click();}});
 

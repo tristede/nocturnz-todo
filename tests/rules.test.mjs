@@ -149,6 +149,27 @@ await t('club : config lisible par un membre', () => assertSucceeds(getDoc(doc(z
 await t('club : config pas modifiable', () => assertFails(setDoc(doc(admin, 'config/club'), { admins: ['admin@x.test', 'zoe@x.test'] })));
 await t('club : liste de mes invités', () => assertSucceeds(getDocs(query(collection(sara, 'access'), where('by', '==', 'sara')))));
 
+// Suivi à plusieurs (amis par modèle, non transitif)
+const T = 'mcu-endgame', pr = (a, b) => (a < b ? a + '_' + b : b + '_' + a);
+const winv = (from, fromDb, to) => setDoc(doc(fromDb, 'invites/watch_' + T + '__' + to), { type: 'watch', target: T, targetName: 'MCU', kind: 'todo', from, fromName: from, toEmail: to, status: 'pending' });
+await t('suivi : invitation à suivre ensemble', () => assertSucceeds(winv('adam', adam, 'sara@x.test')));
+await t('suivi : 2e invitation (vers Zoé)', () => assertSucceeds(winv('adam', adam, 'zoe@x.test')));
+const accept = (uid, db, email, from) => { const b = writeBatch(db); b.set(doc(db, 'friends/' + T + '__' + pr(uid, from)), { tpl: T, users: [from, uid], names: {} }); b.update(doc(db, 'invites/watch_' + T + '__' + email), { status: 'accepted' }); return b.commit(); };
+await t('suivi : Sara accepte', () => assertSucceeds(accept('sara', sara, 'sara@x.test', 'adam')));
+await t('suivi : Zoé accepte', () => assertSucceeds(accept('zoe', zoe, 'zoe@x.test', 'adam')));
+await t('suivi : pas de lien sans invitation (Sara–Zoé)', () => assertFails(setDoc(doc(sara, 'friends/' + T + '__' + pr('sara', 'zoe')), { tpl: T, users: ['sara', 'zoe'], names: {} })));
+await t('suivi : chacun publie sa progression', async () => {
+  for (const [u, db] of [['adam', adam], ['sara', sara], ['zoe', zoe]]) await assertSucceeds(setDoc(doc(db, 'progress/' + u + '__' + T), { uid: u, tpl: T, pct: 10 }));
+});
+await t('suivi : pas au nom d’un autre', () => assertFails(setDoc(doc(sara, 'progress/adam__' + T), { uid: 'adam', tpl: T, pct: 99 })));
+await t('suivi : Adam voit Sara', () => assertSucceeds(getDoc(doc(adam, 'progress/sara__' + T))));
+await t('suivi : Sara voit Adam', () => assertSucceeds(getDoc(doc(sara, 'progress/adam__' + T))));
+await t('suivi : Sara ne voit pas Zoé (pas amies entre elles)', () => assertFails(getDoc(doc(sara, 'progress/zoe__' + T))));
+await t('suivi : Léa ne voit personne', () => assertFails(getDoc(doc(lea, 'progress/adam__' + T))));
+await t('suivi : Sara voit ses liens', () => assertSucceeds(getDocs(query(collection(sara, 'friends'), where('users', 'array-contains', 'sara')))));
+await t('suivi : Sara arrête de suivre avec Adam', () => assertSucceeds(deleteDoc(doc(sara, 'friends/' + T + '__' + pr('sara', 'adam')))));
+await t('suivi : ensuite Sara ne voit plus Adam', () => assertFails(getDoc(doc(sara, 'progress/adam__' + T))));
+
 await env.cleanup();
 console.log(`\n${pass} réussis, ${fail} échoués`);
 process.exit(fail ? 1 : 0);
