@@ -1,5 +1,6 @@
 import { nid, SHARED } from './store.js';
 import { installDnd, isDragging } from './dnd.js';
+import { TEMPLATES } from './templates.js';
 
 export function startApp(store, data, root){
   var S=data.S, D=data, ME=store.me;
@@ -37,9 +38,12 @@ export function startApp(store, data, root){
   function shift(k,n){var p=k.split('-');var d=new Date(+p[0],p[1]-1,+p[2]+n,12);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   function flat(secs){var r=[];secs.forEach(function(s,si){s.groups.forEach(function(g,gi){g.tasks.forEach(function(t,i){r.push({t:t,s:s,g:g,si:si,gi:gi,i:i});});});});return r;}
   function tasks(){return flat(S.sections);}
+  // les suivis (watchlists) ne comptent pas comme des tâches : ni dans Aujourd'hui, ni dans Tout, ni dans le compteur
+  function isWatch(s){return s&&s.type==='watch';}
+  function todoTasks(){return tasks().filter(function(x){return !isWatch(x.s);});}
   function find(id,secs){var a=flat(secs||S.sections);for(var i=0;i<a.length;i++)if(a[i].t.id===id)return a[i];return null;}
   function focusList(today){
-    var due=tasks().filter(function(x){return x.t.due&&x.t.due<=today&&(!x.t.d||x.t.at===today);});
+    var due=todoTasks().filter(function(x){return x.t.due&&x.t.due<=today&&(!x.t.d||x.t.at===today);});
     var ids=due.map(function(x){return x.t.id;});
     return due.concat(S.focus.map(function(id){return find(id);}).filter(function(x){return x&&ids.indexOf(x.t.id)<0&&(!x.t.d||x.t.at===today);}));}
   function dueLabel(k){var today=dayKey();if(k<today)return ['En retard','late'];if(k===today)return ['Aujourd’hui','now'];if(k===shift(today,1))return ['Demain','soon'];
@@ -70,7 +74,7 @@ export function startApp(store, data, root){
 
   /* ---------- Rendu ---------- */
   function render(){
-    var all=tasks(),today=dayKey(),N=all.length,D=all.filter(function(x){return x.t.d;}).length;
+    var every=tasks(),all=every.filter(function(x){return !isWatch(x.s);}),today=dayKey(),N=all.length,D=all.filter(function(x){return x.t.d;}).length;
     var B=flat(S.buy),bOpen=B.filter(function(x){return !x.t.d;}).length;
     if(['today','all'].concat(S.sections.map(function(s){return s.id;})).indexOf(tab)<0)tab='today';
     if(['all'].concat(S.buy.map(function(s){return s.id;})).indexOf(btab)<0)btab='all';
@@ -84,7 +88,7 @@ export function startApp(store, data, root){
     if(mode==='todo'){
       h+='<div class="meter"><div class="track"><i style="width:'+(N?D/N*100:0)+'%"></i></div><span>'+D+'/'+N+' faites</span></div>'+
       '<nav class="tabs" aria-label="Vues">'+tabBtn('tab','today','Aujourd’hui','var(--star)',focOpen,tab)+tabBtn('tab','all','Tout','var(--ink)',N-D,tab)+
-      S.sections.map(function(s,i){return tabBtn('tab',s.id,s.name,col(s),all.filter(function(x){return x.s===s&&!x.t.d;}).length,tab,s.virtual?'':'t:'+i,s);}).join('')+'</nav>';
+      S.sections.map(function(s,i){return tabBtn('tab',s.id,s.name,col(s),every.filter(function(x){return x.s===s&&!x.t.d;}).length,tab,s.virtual?'':'t:'+i,s);}).join('')+'</nav>';
     }else{
       h+='<nav class="tabs" aria-label="Catégories de la wishlist">'+tabBtn('btab','all','Tout','var(--ink)',bOpen,btab)+
       S.buy.map(function(s,i){return tabBtn('btab',s.id,s.name,col(s),B.filter(function(x){return x.s===s&&!x.t.d;}).length,btab,s.virtual?'':'b:'+i,s);}).join('')+'</nav>';
@@ -93,8 +97,9 @@ export function startApp(store, data, root){
     if(mode==='buy')h+=viewBuys(B);
     else if(tab==='today')h+=viewToday(all,today,foc);
     else if(tab==='all')h+=viewAll(all);
-    else h+=viewSection(S.sections.filter(function(s){return s.id===tab;})[0],all);
-    h+='<p class="sign">by Adam</p></main>'+(mode==='buy'?'':'<button class="fab" type="button" data-add aria-label="Ajouter une tâche">+</button>');
+    else{var cur=S.sections.filter(function(s){return s.id===tab;})[0];h+=isWatch(cur)?viewWatch(cur,every):viewSection(cur,all);}
+    var onWatch=mode==='todo'&&isWatch(S.sections.filter(function(s){return s.id===tab;})[0]);
+    h+='<p class="sign">by Adam</p></main>'+(mode==='buy'||onWatch?'':'<button class="fab" type="button" data-add aria-label="Ajouter une tâche">+</button>');
     app.innerHTML=h;
     document.title='Nocturnz/'+(mode==='buy'?'wishlist':'todo');
     fitNames();
@@ -163,6 +168,105 @@ export function startApp(store, data, root){
     if(!v||v===g.name){inp.value=g.name;return;}
     g.name=v;change();
   }
+  /* ---------- Suivi (watchlist) : progression vers un objectif ---------- */
+  var IMP={1:{n:'À regarder',c:'oasis'},2:{n:'Mieux de voir',c:'important'},3:{n:'Tu peux skip',c:'later'}};
+  var wf={imp:0,hide:false};try{var wfs=JSON.parse(localStorage.getItem('wf')||'null');if(wfs)wf=wfs;}catch(_){}
+  function saveWf(){try{localStorage.setItem('wf',JSON.stringify(wf));}catch(_){}}
+  function hm(min){min=Math.round(min||0);var h=Math.floor(min/60),m=min%60;return h?h+' h'+(m?' '+String(m).padStart(2,'0'):''):m+' min';}
+  function yr(k){return k?k.slice(0,4):'';}
+  function byRel(a,b){return (a.t.rel||'9999')<(b.t.rel||'9999')?-1:(a.t.rel||'9999')>(b.t.rel||'9999')?1:0;}
+  function impTag(i){var m=IMP[i];return m?'<span class="imp" style="--c:var(--'+m.c+')">'+m.n+'</span>':'';}
+  function wrow(x,n){
+    var t=x.t,m=[];if(t.rel)m.push(yr(t.rel));if(t.dur)m.push(hm(t.dur));
+    return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+'" style="--k:'+col(x.s)+'">'+
+      '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme vu : '+esc(t.t)+'">'+
+      '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.goal?' <span class="goalb">Objectif</span>':'')+'</span>'+
+      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+impTag(t.imp)+(t.d&&t.at?'<span class="seen">Vu le '+fdate(t.at)+'</span>':'')+(t.note?'<span>'+esc(t.note)+'</span>':'')+'</span></button></li>';
+  }
+  function viewWatch(s,every){
+    var si=S.sections.indexOf(s),L=every.filter(function(x){return x.s===s;}).sort(byRel);
+    var goal=L.filter(function(x){return x.t.goal;})[0],G=goal?L.filter(function(x){return (x.t.rel||'')<=(goal.t.rel||'9999');}):L;
+    var seen=G.filter(function(x){return x.t.d;}),left=G.filter(function(x){return !x.t.d;});
+    var ess=left.filter(function(x){return (x.t.imp||1)===1;}),pct=G.length?Math.round(seen.length/G.length*100):0;
+    var tAll=left.reduce(function(a,x){return a+(x.t.dur||0);},0),tEss=ess.reduce(function(a,x){return a+(x.t.dur||0);},0);
+    var vis=function(x){return (!wf.imp||(x.t.imp||1)===wf.imp)&&!(wf.hide&&x.t.d);};
+    // prochain titre : le premier pas encore vu, en sautant les « Tu peux skip » (sauf si on filtre dessus)
+    var next=left.filter(function(x){var i=x.t.imp||1;return wf.imp?i===wf.imp:i!==3;})[0]||left[0];
+    var h='<div class="pagehead" style="--c:'+col(s)+'"><h2><input class="gname pname inl" type="text" value="'+esc(s.name)+'" data-ck="t" data-cs="'+si+'" enterkeyhint="done" autocomplete="off" aria-label="Renommer le suivi"></h2>'+shareBtn(s,'t')+'</div>';
+    // objectif + progression
+    h+='<section class="card whero"><div class="wh-top"><div><div class="eyebrow">'+(goal?'Objectif':'Progression')+'</div><div class="wh-goal">'+(goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
+      '<div class="wbar"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="wstats"><div><b>'+seen.length+'<small>/'+G.length+'</small></b><span>vus</span></div><div><b>'+hm(tAll)+'</b><span>pour tout voir</span></div><div><b>'+hm(tEss)+'</b><span>essentiel seulement</span></div></div>'+
+      (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[yr(next.t.rel),next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
+        (G.length?'<div class="wnext done-all"><b>'+(goal?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
+    // filtres
+    h+='<div class="chipscroll wfilters">'+[[0,'Tout'],[1,IMP[1].n],[2,IMP[2].n],[3,IMP[3].n]].map(function(f){
+      var n=L.filter(function(x){return !f[0]||(x.t.imp||1)===f[0];}).length;
+      return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]?IMP[f[0]].c:'ink')+')" data-wf-imp="'+f[0]+'" aria-pressed="'+(wf.imp===f[0])+'">'+f[1]+' <span class="n">'+n+'</span></button>';}).join('')+
+      '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
+    // liste par ordre de sortie (numérotée dans l'ordre complet)
+    h+='<section class="card notes">';
+    s.groups.forEach(function(g,gi){
+      var GL=L.filter(function(x){return x.g===g;}),shown=GL.filter(vis);
+      if(s.groups.length>1)h+=gHead('w',si,gi,g,'<span class="gsum">'+GL.filter(function(x){return x.t.d;}).length+'/'+GL.length+'</span>');
+      h+=shown.length?'<ul>'+shown.map(function(x){return wrow(x,L.indexOf(x)+1);}).join('')+'</ul>':'<p class="empty">'+(GL.length?'Rien avec ce filtre.':'Aucun titre pour l’instant.')+'</p>';
+      h+=qline('w',si,gi,0,'Ajouter un titre… (ex. Thor 2011)');
+    });
+    h+='</section>';
+    // historique
+    var ev=[];L.forEach(function(x){(x.t.vh||[]).forEach(function(d){ev.push({on:d,t:x.t.t});});});
+    ev.sort(function(a,b){return a.on<b.on?1:a.on>b.on?-1:0;});
+    h+='<section class="card"><details class="donebox"'+(ev.length&&ev.length<6?' open':'')+'><summary>Historique ('+ev.length+')</summary>'+
+      (ev.length?'<ol class="whist">'+ev.slice(0,100).map(function(e){return '<li><span class="hd">'+fdate(e.on)+'</span><span>'+esc(e.t)+'</span></li>';}).join('')+'</ol>':'<p class="empty">Coche un titre quand tu l’as vu : il s’affichera ici avec la date.</p>')+
+      '</details>'+(seen.length?'<div class="btn-row"><button type="button" class="btn danger" data-wreset="'+s.id+'">'+(sh===null&&wreset===s.id?'Confirmer : tout décocher ('+L.filter(function(x){return x.t.d;}).length+')':'Réinitialiser la progression')+'</button></div>':'')+'</section>';
+    return h;
+  }
+  var wreset='';
+  function openWatch(id){var x=find(id);if(!x)return;var t=x.t;sh={kind:'watch',id:id,text:t.t,rel:t.rel||'',dur:t.dur||'',imp:t.imp||1,goal:!!t.goal,d:!!t.d,note:t.note||'',confirm:false};renderWatch();}
+  function syncWatch(){var q=function(i){return sheetRoot.querySelector(i);};['text','rel','dur','note'].forEach(function(k){var e=q('#wt-'+k);if(e)sh[k]=e.value;});var g=q('#wt-goal');if(g)sh.goal=g.checked;var d=q('#wt-d');if(d)sh.d=d.checked;}
+  function renderWatch(){
+    var x=find(sh.id);if(!x){closeSheet();return;}var vh=(x.t.vh||[]).slice().reverse();
+    sheetRoot.innerHTML=edSheet('Modifier le titre',
+      '<textarea id="wt-text" class="ed-text" rows="2" aria-label="Titre">'+esc(sh.text)+'</textarea>'+
+      '<div class="set"><label class="row" for="wt-rel"><span class="rk">Sortie</span><input type="'+(/^\d{4}$/.test(sh.rel)?'text':'date')+'" id="wt-rel" class="rowin right" value="'+esc(sh.rel)+'" placeholder="AAAA-MM-JJ"></label>'+
+        '<label class="row" for="wt-dur"><span class="rk">Durée</span><input type="number" id="wt-dur" class="rowin right" inputmode="numeric" min="0" value="'+esc(sh.dur)+'" placeholder="minutes"><span class="unit">min</span></label></div>'+
+      '<section class="sec"><h4 class="sec-h">Importance</h4><div class="chipscroll">'+[1,2,3].map(function(i){return '<button type="button" class="chipb tg" style="--c:var(--'+IMP[i].c+')" data-wimp="'+i+'" aria-pressed="'+(sh.imp===i)+'">'+IMP[i].n+'</button>';}).join('')+'</div></section>'+
+      '<div class="set"><label class="row" for="wt-note"><span class="rk">Note</span><input type="text" id="wt-note" class="rowin right" value="'+esc(sh.note)+'" placeholder="où le voir, avec qui…"></label>'+
+        '<label class="row" for="wt-d"><span class="rl">Vu</span><input type="checkbox" class="toggle" id="wt-d"'+(sh.d?' checked':'')+'></label>'+
+        '<label class="row" for="wt-goal"><span class="rl">C’est l’objectif</span><input type="checkbox" class="toggle" id="wt-goal"'+(sh.goal?' checked':'')+'></label></div>'+
+      (vh.length?'<details class="hist" open><summary>Vu '+vh.length+' fois</summary><ol>'+vh.map(function(d){return '<li><span class="hd">'+fdate(d)+'</span><span>Vu</span></li>';}).join('')+'</ol></details>':'')+
+      '<div class="ed-foot"><button type="button" class="tbtn danger" data-w-del>'+(sh.confirm?'Confirmer ?':'Supprimer')+'</button><span class="spacer"></span><button type="button" class="btn" data-w-save>Enregistrer</button></div>');
+  }
+  function saveWatch(){
+    syncWatch();var x=find(sh.id);if(!x){closeSheet();return;}var t=x.t,v=sh.text.trim();if(v)setText(t,v);
+    if(sh.rel)t.rel=sh.rel;else delete t.rel;var du=parseInt(sh.dur,10);if(du>0)t.dur=du;else delete t.dur;t.imp=sh.imp;
+    if(sh.note.trim())t.note=sh.note.trim();else delete t.note;
+    if(sh.goal){x.s.groups.forEach(function(g){g.tasks.forEach(function(o){if(o!==t)delete o.goal;});});t.goal=true;}else delete t.goal;
+    if(sh.d&&!t.d){t.d=true;t.at=dayKey();(t.vh=t.vh||[]).push(t.at);}else if(!sh.d&&t.d){t.d=false;delete t.at;}
+    closeSheet();change();
+  }
+  // Crée un suivi (vide ou depuis un modèle) et l'ouvre
+  function createWatch(tpl){
+    var s={id:nid('c'),name:tpl?tpl.name:'Nouveau suivi',color:tpl?tpl.color:'contenu',type:'watch',owner:ME.uid,members:[ME.uid],memberInfo:{},
+      groups:[{name:tpl?tpl.group:'Titres',tasks:(tpl?tpl.items:[]).map(function(it){var o={id:nid('t'),t:it.t,d:false,imp:it.imp||1};if(it.rel)o.rel=it.rel;if(it.dur)o.dur=it.dur;if(it.goal)o.goal=true;return o;})}]};
+    S.sections.push(s);mode='todo';tab=s.id;try{localStorage.setItem('tab2',tab);localStorage.setItem('mode2','todo');}catch(_){}
+    change();window.scrollTo(0,0);toast(tpl?'Suivi « '+tpl.name+' » créé':'Suivi créé');
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest&&e.target.closest('[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
+    function A(n){return b.getAttribute('data-'+n);}function has(n){return b.hasAttribute('data-'+n);}
+    if(has('wopen')){openWatch(A('wopen'));return;}
+    if(has('wseen')){var x=find(A('wseen'));if(x&&!x.t.d){x.t.d=true;x.t.at=dayKey();(x.t.vh=x.t.vh||[]).push(x.t.at);toast('Vu : '+x.t.t);change();}return;}
+    if(has('wf-imp')){wf.imp=+A('wf-imp');saveWf();render();return;}
+    if(has('wf-hide')){wf.hide=!wf.hide;saveWf();render();return;}
+    if(has('wreset')){var id=A('wreset');if(wreset!==id){wreset=id;render();setTimeout(function(){if(wreset===id){wreset='';render();}},5000);return;}
+      wreset='';var sec=S.sections.filter(function(c){return c.id===id;})[0];if(sec)sec.groups.forEach(function(g){g.tasks.forEach(function(t){if(t.d){t.d=false;delete t.at;}});});toast('Progression remise à zéro (l’historique est gardé)');change();return;}
+    if(has('m-watch')){var key=A('m-watch'),tpl=TEMPLATES.filter(function(t){return t.id===key;})[0]||null;if(sh&&sh.kind==='manage'){syncManage();saveManage();}else if(sh)closeSheet();createWatch(tpl);return;}
+    if(!sh||sh.kind!=='watch')return;
+    if(has('wimp')){syncWatch();sh.imp=+A('wimp');renderWatch();return;}
+    if(has('w-save')){saveWatch();return;}
+    if(has('w-del')){if(!sh.confirm){syncWatch();sh.confirm=true;renderWatch();return;}var y=find(sh.id);if(y)y.g.tasks.splice(y.i,1);closeSheet();change();return;}
+  });
   function viewSection(s,all){
     var si=S.sections.indexOf(s),L=all.filter(function(x){return x.s===s;}),open=L.filter(function(x){return !x.t.d;});
     var h='<div class="pagehead" style="--c:'+col(s)+'"><h2>'+(s.virtual?esc(s.name):'<input class="gname pname inl" type="text" value="'+esc(s.name)+'" data-ck="t" data-cs="'+si+'" enterkeyhint="done" autocomplete="off" aria-label="Renommer le projet '+esc(s.name)+'">')+'</h2><span class="sub">'+open.length+' à faire · '+(L.length-open.length)+' faites</span>'+shareBtn(s,'t')+'</div><section class="card notes">';
@@ -233,6 +337,11 @@ export function startApp(store, data, root){
       var m=v.match(/^(.*?)[\s:,-]*(\d+(?:[.,]\d{1,2})?)\s*(€|eur(?:os?)?)\s*$/i),it={id:nid('b'),d:false,lvl:l||defTag('buy')};mark(it);
       if(m&&m[1].trim()){it.t=m[1].trim();it.price=m[2].replace('.',',')+' €';}else it.t=v;
       S.buy[si].groups[gi].tasks.push(it);
+    }else if(kind==='w'){
+      // « Thor 2011 » ou « Thor (2011) » : l'année devient la date de sortie
+      var my=v.match(/^(.*?)[\s(,-]*((?:19|20)\d{2})\)?\s*$/),wt={id:nid('t'),d:false,imp:1};
+      if(my&&my[1].trim()){wt.t=my[1].trim();wt.rel=my[2];}else wt.t=v;
+      S.sections[si].groups[gi].tasks.push(wt);
     }else S.sections[si].groups[gi].tasks.push({id:nid('t'),t:v,d:false,p:defTag('todo'),tu:ME.uid,tn:ME.name});
     if(soft){save();setTimeout(function(){var ae=document.activeElement;if(!sh&&!(ae&&ae.classList&&ae.classList.contains('qadd')))render();},300);return;}
     prune();render();var n=document.getElementById(id);if(n)n.focus();save();
@@ -262,8 +371,8 @@ export function startApp(store, data, root){
   function tagChips(k,attr,cur){return '<div class="chipscroll">'+keepChip(k,attr,cur)+tagList(k).map(function(tg){return '<button type="button" class="chipb tg" style="--c:var(--'+tg.c+')" data-'+attr+'="'+tg.id+'" aria-pressed="'+(cur===tg.id)+'">'+esc(tg.n)+'</button>';}).join('')+'</div>';}
   function wrap(title,inner){return '<div class="backdrop" data-close></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title"><div class="grab"></div><h3 id="sh-title">'+title+'</h3>'+inner+'</div>';}
   function closeSheet(){sh=null;sheetRoot.innerHTML='';var f=app.querySelector('.fab');if(f)f.focus();flush();}
-  function rerender(){if(sh.kind==='share')renderShare();else if(sh.kind==='bell')renderBell();else if(sh.kind==='account')renderAccount();else if(sh.kind==='task')renderTask();else if(sh.kind==='buy')renderBuy();else if(sh.kind==='rep')renderRep();else renderManage();}
-  function sync(){if(!sh)return;if(['rep','share','bell','account'].indexOf(sh.kind)>=0)return;if(sh.kind==='manage')syncManage();else{syncCommon();if(sh.kind==='task'){var d=sheetRoot.querySelector('#sh-date');if(d)sh.due=d.value;var f=sheetRoot.querySelector('#sh-focus');if(f)sh.focus=f.checked;}
+  function rerender(){if(sh.kind==='watch')renderWatch();else if(sh.kind==='share')renderShare();else if(sh.kind==='bell')renderBell();else if(sh.kind==='account')renderAccount();else if(sh.kind==='task')renderTask();else if(sh.kind==='buy')renderBuy();else if(sh.kind==='rep')renderRep();else renderManage();}
+  function sync(){if(!sh)return;if(['rep','share','bell','account','watch'].indexOf(sh.kind)>=0)return;if(sh.kind==='manage')syncManage();else{syncCommon();if(sh.kind==='task'){var d=sheetRoot.querySelector('#sh-date');if(d)sh.due=d.value;var f=sheetRoot.querySelector('#sh-focus');if(f)sh.focus=f.checked;}
     else ['price','link','note'].forEach(function(k){var el=sheetRoot.querySelector('#bs-'+k);if(el)sh[k]=el.value;});}}
 
   /* Tâche */
@@ -381,17 +490,19 @@ export function startApp(store, data, root){
   function openManage(focusId){
     var src=(mode==='buy'?S.buy:S.sections).filter(function(s){return !s.virtual;});
     sh={kind:'manage',target:mode,draft:src.map(function(s){return {src:s,name:s.name,color:ckey(s),groups:s.groups.map(function(g){return {src:g,name:g.name};})};})};
+    var i=focusId?src.map(function(s){return s.id;}).indexOf(focusId):-1;
+    sh.only=i>=0?i:null;
     renderManage(true);
-    var i=focusId?src.map(function(s){return s.id;}).indexOf(focusId):-1,el=i>=0&&sheetRoot.querySelectorAll('.mg-sec')[i];
-    if(el){el.classList.add('hl');requestAnimationFrame(function(){try{el.scrollIntoView({block:'center'});}catch(_){el.scrollIntoView();}});setTimeout(function(){el.classList.remove('hl');},1600);}
   }
   function cnt(d){return d.src?d.src.tasks?d.src.tasks.length:d.src.groups.reduce(function(a,g){return a+g.tasks.length;},0):0;}
   function delBtn(path,d){var n=cnt(d);return '<button type="button" class="mini danger" data-m-del="'+path+'" aria-label="Supprimer">'+(d.confirm?'Supprimer '+(n?'+ '+n+' élément'+(n>1?'s':''):'')+' ?':'×')+'</button>';}
   function renderManage(first){
     var isBuy=sh.target==='buy',D=sh.draft;
-    var h='<p class="hint flush">'+(isBuy?'Catégories et sous-catégories de ta wishlist.':'Projets et groupes de ta todo.')+' Renomme directement dans les champs, change la couleur avec la pastille, réordonne avec ↑ ↓.</p><div class="mgr">';
+    var one=sh.only!=null&&D[sh.only];
+    var h=(one?'':'<p class="hint flush">'+(isBuy?'Catégories et sous-catégories de ta wishlist.':'Projets et groupes de ta todo.')+' Renomme directement dans les champs, change la couleur avec la pastille, réordonne avec ↑ ↓.</p>')+'<div class="mgr">';
     D.forEach(function(s,i){
-      h+='<div class="mg-sec" style="--c:var(--'+s.color+')"><div class="mg-row">'+
+      if(one&&i!==sh.only)return;
+      h+='<div class="mg-sec'+(one?' one':'')+'" style="--c:var(--'+s.color+')"><div class="mg-row">'+
         '<button type="button" class="swatch" data-m-color="'+i+'" aria-label="Changer la couleur"></button>'+
         '<input type="text" class="mg-name strong" id="m-s-'+i+'" value="'+esc(s.name)+'" aria-label="Nom">'+
         '<button type="button" class="mini" data-m-up="s-'+i+'" aria-label="Monter"'+(i?'':' disabled')+'>↑</button>'+
@@ -404,9 +515,10 @@ export function startApp(store, data, root){
       });
       h+='<button type="button" class="addline" data-m-addg="'+i+'">+ '+(isBuy?'Sous-catégorie':'Groupe')+'</button></div></div>';
     });
-    h+='</div><button type="button" class="btn ghost" data-m-adds>+ '+(isBuy?'Nouvelle catégorie':'Nouveau projet')+'</button>'+
+    h+='</div>'+(one?'':'<button type="button" class="btn ghost" data-m-adds>+ '+(isBuy?'Nouvelle catégorie':'Nouveau projet')+'</button>'+
+      (isBuy||!prefs().tools.watch?'':'<div class="set">'+watchButtons()+'</div>'))+
       '<div class="ed-foot"><button type="button" class="tbtn" data-close>Annuler</button><span class="spacer"></span><button type="button" class="btn" data-m-save>Enregistrer</button></div>';
-    sheetRoot.innerHTML=edSheet(isBuy?'Catégories de la wishlist':'Projets et groupes',h);
+    sheetRoot.innerHTML=edSheet(one?'Modifier « '+esc(one.name||'Sans nom')+' »':isBuy?'Catégories de la wishlist':'Projets et groupes',h);
     if(first){var b=sheetRoot.querySelector('.sheet');if(b)b.focus&&b.focus();}
   }
   function syncManage(){sh.draft.forEach(function(s,i){var e=sheetRoot.querySelector('#m-s-'+i);if(e)s.name=e.value;s.groups.forEach(function(g,j){var f=sheetRoot.querySelector('#m-g-'+i+'-'+j);if(f)g.name=f.value;});});}
@@ -426,7 +538,7 @@ export function startApp(store, data, root){
   /* ---------- Événements ---------- */
   document.addEventListener('change',function(e){
     var id=e.target.getAttribute&&e.target.getAttribute('data-id');
-    if(id){var x=find(id);if(!x)return;x.t.d=e.target.checked;if(x.t.d)x.t.at=dayKey();else delete x.t.at;change();return;}
+    if(id){var x=find(id);if(!x)return;x.t.d=e.target.checked;if(x.t.d){x.t.at=dayKey();if(isWatch(x.s))(x.t.vh=x.t.vh||[]).push(x.t.at);}else delete x.t.at;change();return;}
     var bid=e.target.getAttribute&&e.target.getAttribute('data-bid');
     if(bid){var y=find(bid,S.buy);if(!y)return;y.t.d=e.target.checked;if(y.t.d)y.t.at=dayKey();else delete y.t.at;change();return;}
     if(sh&&(sh.kind==='task'||sh.kind==='buy')&&e.target.id==='sh-sec'){sync();sh.si=+e.target.value;sh.gi=0;rerender();return;}
@@ -462,7 +574,7 @@ export function startApp(store, data, root){
       syncManage();
       if(has('m-color')){var d=sh.draft[+A('m-color')];d.color=PAL[(PAL.indexOf(d.color)+1)%PAL.length];}
       else if(has('m-up')||has('m-down')){var r=mref(A('m-up')||A('m-down')),k=r.i+(has('m-up')?-1:1);if(k>=0&&k<r.arr.length){var tmp=r.arr[k];r.arr[k]=r.arr[r.i];r.arr[r.i]=tmp;}}
-      else if(has('m-del')){var q=mref(A('m-del'));if(!cnt(q.item)||q.item.confirm)q.arr.splice(q.i,1);else q.item.confirm=true;}
+      else if(has('m-del')){var q=mref(A('m-del'));if(!cnt(q.item)||q.item.confirm){q.arr.splice(q.i,1);if(sh.only!=null&&A('m-del').charAt(0)==='s'){sh.only=null;saveManage();return;}}else q.item.confirm=true;}
       else if(has('m-addg')){sh.draft[+A('m-addg')].groups.push({src:null,name:''});renderManage();var gs=sheetRoot.querySelectorAll('#m-g-'+A('m-addg')+'-'+(sh.draft[+A('m-addg')].groups.length-1));if(gs[0])gs[0].focus();return;}
       else if(has('m-adds')){sh.draft.push({src:null,name:'',color:PAL[sh.draft.length%PAL.length],groups:[{src:null,name:'Divers'}]});renderManage();var ns=sheetRoot.querySelector('#m-s-'+(sh.draft.length-1));if(ns)ns.focus();return;}
       else if(has('m-save')){saveManage();return;}
@@ -490,6 +602,16 @@ export function startApp(store, data, root){
   });
 
 
+  /* ---------- PC : faire défiler les rangées d'onglets à la molette ou en glissant ---------- */
+  var HS='.tabs,.chipscroll';
+  document.addEventListener('wheel',function(e){var el=e.target.closest&&e.target.closest(HS);if(!el||el.scrollWidth<=el.clientWidth+1)return;
+    if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){el.scrollLeft+=e.deltaY;e.preventDefault();}},{passive:false});
+  var hs=null,hsBlock=0;
+  document.addEventListener('pointerdown',function(e){if(e.pointerType!=='mouse'||e.button)return;var el=e.target.closest&&e.target.closest(HS);if(!el||el.scrollWidth<=el.clientWidth+1)return;hs={el:el,x:e.clientX,l:el.scrollLeft,moved:false};});
+  document.addEventListener('pointermove',function(e){if(!hs)return;var dx=e.clientX-hs.x;if(!hs.moved&&Math.abs(dx)>5){hs.moved=true;hs.el.classList.add('grabbing');}if(hs.moved)hs.el.scrollLeft=hs.l-dx;});
+  document.addEventListener('pointerup',function(){if(hs&&hs.moved){hsBlock=Date.now()+300;hs.el.classList.remove('grabbing');}hs=null;});
+  document.addEventListener('click',function(e){if(Date.now()<hsBlock){e.preventDefault();e.stopPropagation();}},true);
+
   /* ---------- Synchro ---------- */
   function prune(){var today=dayKey();S.focus=S.focus.filter(function(id){var x=find(id)||find(id,S.buy);return x&&(!x.t.d||x.t.at===today);});}
   function setStatus(t){status=t;var el=document.getElementById('status');if(el)el.textContent=t;}
@@ -497,7 +619,7 @@ export function startApp(store, data, root){
   function change(){prune();try{render();}finally{save();}}
   function save(){store.commit(S);}
   // Les mises à jour venues d'ailleurs (autre appareil, personne qui partage) attendent la fin d'une saisie
-  function busy(){var ae=document.activeElement;return isDragging()||!!cm||(sh&&['task','buy','rep','manage'].indexOf(sh.kind)>=0)||!!(ae&&ae.classList&&(ae.classList.contains('qadd')||ae.classList.contains('inl')||ae.classList.contains('gname')));}
+  function busy(){var ae=document.activeElement;return isDragging()||!!cm||(sh&&['task','buy','rep','manage','watch'].indexOf(sh.kind)>=0)||!!(ae&&ae.classList&&(ae.classList.contains('qadd')||ae.classList.contains('inl')||ae.classList.contains('gname')));}
   function apply(d){
     pending=null;var same=JSON.stringify(d.S)===JSON.stringify(S),soc=JSON.stringify([d.invites,d.sent,d.notifs.map(function(n){return n.id+n.read;}),d.club])!==JSON.stringify([D.invites,D.sent,D.notifs.map(function(n){return n.id+n.read;}),D.club]);
     var pc=JSON.stringify(d.prefs||{})!==JSON.stringify(D.prefs||{});
@@ -665,6 +787,7 @@ export function startApp(store, data, root){
       var L=Array.isArray(t[k])?t[k]:[1,2,3].map(function(i){var key=(k==='todo'?'p':'l')+i,d=TAGDEF[key],x=t[key]||{};return {id:i,n:x.n||d.n,c:x.c||d.c};});
       o.tags[k]=L.map(function(x){return {id:+x.id,n:String(x.n||'Tag'),c:x.c||'later'};});
     });
+    o.tools={watch:!!(p.tools&&p.tools.watch)};
     return o;
   }
   function applyPrefs(){
@@ -693,6 +816,9 @@ export function startApp(store, data, root){
     h+='<section class="sec"><h4 class="sec-h">Tags</h4><div class="set">'+[['todo','Todo'],['buy','Wishlist']].map(function(kk){
       return '<div class="row sub">'+kk[1]+'</div>'+P.tags[kk[0]].map(function(t,i){return tagRow(kk[0],t,i,P);}).join('')+
         '<button type="button" class="row addtag" data-tag-add="'+kk[0]+'"><span class="plusc">+</span><span class="rl">Ajouter un tag</span></button>';}).join('')+'</div></section>';
+    h+='<section class="sec"><h4 class="sec-h">Outils</h4><div class="set">'+
+      '<label class="row" for="tool-watch"><span class="rl"><b>Suivis de films et séries</b><small>Progression vers un objectif, temps restant, historique</small></span><input type="checkbox" class="toggle" id="tool-watch"'+(P.tools.watch?' checked':'')+'></label>'+
+      (P.tools.watch?watchButtons():'')+'</div></section>';
     h+='<section class="sec"><h4 class="sec-h">Invitations<span>'+(C.admin?'Illimitées':C.used+' / 2')+'</span></h4><div class="set">'+
       C.invited.map(function(v){return '<div class="row"><span class="rl"><b>'+esc(v.name||v.email)+'</b>'+(v.name?'<small>'+esc(v.email)+'</small>':'')+'</span><span class="pill'+(v.joined?' ok':'')+'">'+(v.joined?'Membre':'En attente')+'</span>'+
         (!v.joined?'<button type="button" class="xbtn sm" data-club-cancel="'+esc(v.email)+'" aria-label="Annuler l’invitation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button>':'')+'</div>';}).join('')+
@@ -705,6 +831,9 @@ export function startApp(store, data, root){
     sheetRoot.innerHTML='<div class="backdrop" data-close></div><div class="sheet pf" role="dialog" aria-modal="true" aria-labelledby="sh-title"><div class="grab"></div>'+h+'</div>';
   }
   function editRef(P){var p=(sh.edit||'').split(':'),L=P.tags[p[0]];if(!L)return null;for(var i=0;i<L.length;i++)if(L[i].id===+p[1])return {k:p[0],L:L,i:i,t:L[i]};return null;}
+  function watchButtons(){return '<button type="button" class="row" data-m-watch=""><span class="plusc">+</span><span class="rl"><b>Nouveau suivi</b><small>Liste vide à remplir</small></span></button>'+
+    TEMPLATES.map(function(t){return '<button type="button" class="row" data-m-watch="'+t.id+'"><span class="plusc">★</span><span class="rl"><b>Modèle : '+esc(t.name)+'</b><small>'+esc(t.desc)+'</small></span></button>';}).join('');}
+  document.addEventListener('change',function(e){if(sh&&sh.kind==='account'&&e.target.id==='tool-watch'){var P=prefs();P.tools.watch=e.target.checked;savePrefs(P);renderAccount();}});
   function saveTagName(){if(!sh||sh.kind!=='account'||!sh.edit)return;var n=sheetRoot.querySelector('#tag-name');if(!n)return;var P=prefs(),r=editRef(P),v=n.value.replace(/\s+/g,' ').trim();if(r&&v&&v!==r.t.n){r.t.n=v;savePrefs(P);}}
   document.addEventListener('click',function(e){
     if(!sh||sh.kind!=='account')return;var b=e.target.closest&&e.target.closest('[data-theme-set],[data-tag-edit],[data-tag-col],[data-tag-add],[data-tag-move],[data-tag-del]');if(!b)return;
