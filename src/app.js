@@ -198,8 +198,8 @@ export function startApp(store, data, root){
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme vu : '+esc(t.t)+'">'+
       '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.goal?' <span class="goalb">Objectif</span>':'')+'</span>'+
       '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp)+(t.cont?'<span class="lien" title="'+esc(t.note||'Autre production, liée au MCU')+'">Lien MCU</span>':'')+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+
-      (pre.length?'<div class="wlinks"><span class="wl-l pre">À voir avant</span>'+chips(pre,'pre')+'</div>':'')+
-      (links.length?'<div class="wlinks"><span class="wl-l">'+(t.cont?'Lié à':'Hors MCU')+'</span>'+chips(links,'hors')+'</div>':'')+'</li>';
+      (pre.length?'<div class="wlinks" aria-label="Titres MCU à voir avant">'+chips(pre,'pre')+'</div>':'')+
+      (links.length?'<div class="wlinks" aria-label="'+(t.cont?'Titres MCU liés':'Titres hors MCU liés')+'">'+chips(links,'hors')+'</div>':'')+'</li>';
   }
   function viewWatch(s,every){
     var si=S.sections.indexOf(s),L=every.filter(function(x){return x.s===s;}).sort(byRel);
@@ -234,7 +234,7 @@ export function startApp(store, data, root){
     else h+='<div class="wintro"><b>À voir avant ou après le MCU</b><span>Autres productions, avec des personnages repris plus tard dans le MCU. Elles ne comptent pas dans ta progression. '+
       bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+' vus · '+hm(bonus.filter(function(x){return !x.t.d;}).reduce(function(a,x){return a+(x.t.dur||0);},0))+' restantes.</span>'+
       '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
-    h+='<div class="wtoggles"><span>Afficher les liens</span><button type="button" class="chipb tg" style="--c:var(--oasis)" data-wf-lm aria-pressed="'+!!wf.lm+'">MCU</button><button type="button" class="chipb tg" style="--c:var(--contenu)" data-wf-lh aria-pressed="'+!!wf.lh+'">Hors MCU</button></div>';
+    h+='<div class="wtoggles"><span>Afficher les liens</span><button type="button" class="chipb tg" style="--c:var(--isfsc)" data-wf-lm aria-pressed="'+!!wf.lm+'">MCU</button><button type="button" class="chipb tg" style="--c:var(--contenu)" data-wf-lh aria-pressed="'+!!wf.lh+'">Hors MCU</button></div>';
     h+='<p class="wconv">Ordre de sortie · dates de sortie aux États-Unis</p>';
     var keep=function(x){return !(wf.hide&&x.t.d)&&(hors||!wf.imp||impOf(x.t)===wf.imp);};
     h+='<section class="card notes">';
