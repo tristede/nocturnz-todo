@@ -218,7 +218,7 @@ export function startApp(store, data, root){
     var h='<div class="pagehead" style="--c:'+col(s)+'"><h2><input class="gname pname inl" type="text" value="'+esc(s.name)+'" data-ck="t" data-cs="'+si+'" enterkeyhint="done" autocomplete="off" aria-label="Renommer le suivi"></h2>'+shareBtn(s,'t')+'</div>';
     h+='<section class="card whero'+(hors?' hors':'')+'"><div class="wh-top"><div><div class="wh-goal">'+(hors?'Hors MCU':goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
       '<div class="wbar'+(hors?' hors':'')+'"><i style="width:'+pct+'%"></i></div>'+
-      '<div class="wstats"><div><b>'+seen.length+'<small>/'+G.length+'</small></b><span>vus</span></div><div><b>'+hm(tAll)+'</b><span>pour tout voir</span></div><div><b>'+hm(tEss)+'</b><span>essentiel seulement</span></div></div>'+
+      '<div class="wstats"><span><b>'+seen.length+'<small>/'+G.length+'</small></b> vus</span><span><b>'+hm(tAll)+'</b> au total</span><span><b>'+hm(tEss)+'</b> essentiel</span></div>'+
       (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[relDate(next.t.rel),next.t.fmt||'',next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
         (G.length?'<div class="wnext done-all"><b>'+(goal&&!hors?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
     var miss=tplMissing(s),fromTpl=!!(s.tpl||TEMPLATES.some(function(t){return t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0;}));

@@ -536,3 +536,12 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .wtabs.seg button[aria-selected="true"]{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 2px var(--isfsc)}
 .wtabs.seg button[data-wf-grp="hors"][aria-selected="true"]{box-shadow:inset 0 0 0 2px var(--contenu)}
 .wbar.hors i{background:var(--contenu)}
+/* chiffres du suivi sur une seule ligne */
+.whero .wstats{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;font-size:13px;color:var(--muted)}
+.whero .wstats span{display:inline;font-size:13px;white-space:nowrap}
+.whero .wstats b{display:inline;font:700 16px/1.2 var(--display);color:var(--ink);font-variant-numeric:tabular-nums}
+.whero .wstats b small{font-size:12px}
+.whero .wstats{gap:4px 10px;font-size:12px}
+.whero .wstats span{font-size:12px}
+.whero .wstats b{font-size:14px}
+.whero .wstats b{font:700 15px/1.2 var(--body)}
