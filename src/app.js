@@ -197,7 +197,7 @@ export function startApp(store, data, root){
     return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+(links.length||pre.length?' haslinks':'')+'" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme vu : '+esc(t.t)+'">'+
       '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.goal?' <span class="goalb">Objectif</span>':'')+'</span>'+
-      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp)+(t.cont?'<span class="lien" title="'+esc(t.note||'Autre production, liée au MCU')+'">Lien MCU</span>':'')+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+
+      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp)+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+
       (pre.length?'<div class="wlinks" aria-label="Titres MCU à voir avant">'+chips(pre,'pre')+'</div>':'')+
       (links.length?'<div class="wlinks" aria-label="'+(t.cont?'Titres MCU liés':'Titres hors MCU liés')+'">'+chips(links,'hors')+'</div>':'')+'</li>';
   }
@@ -218,7 +218,7 @@ export function startApp(store, data, root){
       (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[relDate(next.t.rel),next.t.fmt||'',next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
         (G.length?'<div class="wnext done-all"><b>'+(goal?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
     var miss=tplMissing(s),fromTpl=!!(s.tpl||TEMPLATES.some(function(t){return t.name===s.name||(t.aliases||[]).indexOf(s.name)>=0;}));
-    var nNew=miss.filter(function(o){return !o.upd;}).length;
+    var nNew=miss.filter(function(o){return !o.upd&&!o.rm;}).length;
     if(miss.length)h+='<div class="wmiss"><span>'+(nNew?nNew+' titre'+(nNew>1?'s':'')+' et des infos ajoutés':'Des infos (noms des groupes, objectif, liens « à voir avant ») ajoutées')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Mettre à jour</button></div>';
     // deux listes séparées : le MCU (par phase) et, en parallèle, les autres productions liées
     if(wf.grp!=='hors'||!bonus.length)wf.grp='';
@@ -229,11 +229,11 @@ export function startApp(store, data, root){
     if(!hors)h+='<div class="chipscroll wfilters">'+[[0,'Toute importance'],[1,IMP[1].n],[3,IMP[3].n]].map(function(f){
       return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]?IMP[f[0]].c:'ink')+')" data-wf-imp="'+f[0]+'" aria-pressed="'+(wf.imp===f[0])+'">'+f[1]+'</button>';}).join('')+
       '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
-    else h+='<div class="wintro"><b>À voir avant ou après le MCU</b><span>Autres productions, avec des personnages repris plus tard dans le MCU. Elles ne comptent pas dans ta progression. '+
-      bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+' vus · '+hm(bonus.filter(function(x){return !x.t.d;}).reduce(function(a,x){return a+(x.t.dur||0);},0))+' restantes.</span>'+
+    else h+='<div class="chipscroll wfilters">'+[[0,'Toute importance'],[1,IMP[1].n],[3,IMP[3].n]].map(function(f){
+      return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]?IMP[f[0]].c:'ink')+')" data-wf-imph="'+f[0]+'" aria-pressed="'+((wf.impH||0)===f[0])+'">'+f[1]+'</button>';}).join('')+
       '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
-    h+='<div class="wtoggles"><button type="button" class="chipb tg" style="--c:var(--isfsc)" data-wf-lm aria-pressed="'+!!wf.lm+'" aria-label="Afficher les liens MCU">↗ MCU</button><button type="button" class="chipb tg" style="--c:var(--contenu)" data-wf-lh aria-pressed="'+!!wf.lh+'" aria-label="Afficher les liens hors MCU">↗ Hors MCU</button></div>';
-    var keep=function(x){return !(wf.hide&&x.t.d)&&(hors||!wf.imp||impOf(x.t)===wf.imp);};
+    h+='<div class="wtoggles"><button type="button" class="ltog" style="--c:var(--isfsc)" data-wf-lm aria-pressed="'+!!wf.lm+'" aria-label="Afficher les liens MCU">↗ MCU</button><button type="button" class="ltog" style="--c:var(--contenu)" data-wf-lh aria-pressed="'+!!wf.lh+'" aria-label="Afficher les liens hors MCU">↗ Hors MCU</button></div>';
+    var keep=function(x){return !(wf.hide&&x.t.d)&&(hors?(!wf.impH||impOf(x.t)===wf.impH):(!wf.imp||impOf(x.t)===wf.imp));};
     h+='<section class="card notes">';
     s.groups.forEach(function(g,gi){
       if(side(g)!==hors)return;
@@ -284,7 +284,11 @@ export function startApp(store, data, root){
     var out=[];tpl.groups.forEach(function(g){g.items.forEach(function(it){var t=have[it.t];
       if(!t){out.push({g:g.name,side:!!g.side,it:it});return;}
       var lacks=['lk','pre','fmt','cont'].some(function(k){return it[k]&&!t[k];})||(!!it.goal!==!!t.goal)||t.imp===2;
-      if(where[it.t]!==g.name||lacks)out.push({g:g.name,side:!!g.side,it:it,upd:t});});});return out;}
+      if(it.cont&&it.imp===1&&t.imp===3)lacks=true;
+      if(where[it.t]!==g.name||lacks)out.push({g:g.name,side:!!g.side,it:it,upd:t});});});
+    var known={};tpl.groups.forEach(function(g){g.items.forEach(function(it){known[it.t]=1;});});
+    s.groups.forEach(function(g){g.tasks.forEach(function(t){if(t.cont&&!t.d&&!known[t.t])out.push({rm:t});});});
+    return out;}
   // Crée un suivi (vide ou depuis un modèle) et l'ouvre
   function createWatch(tpl){
     var s={id:nid('c'),name:tpl?tpl.name:'Nouveau suivi',color:tpl?tpl.color:'contenu',type:'watch',tpl:tpl?tpl.id:'',owner:ME.uid,members:[ME.uid],memberInfo:{},
@@ -293,7 +297,7 @@ export function startApp(store, data, root){
     change();window.scrollTo(0,0);toast(tpl?'Suivi « '+tpl.name+' » créé':'Suivi créé');
   }
   document.addEventListener('click',function(e){
-    var b=e.target.closest&&e.target.closest('[data-wlink],[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wf-lm],[data-wf-lh],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
+    var b=e.target.closest&&e.target.closest('[data-wlink],[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wf-imph],[data-wf-lm],[data-wf-lh],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
     function A(n){return b.getAttribute('data-'+n);}function has(n){return b.hasAttribute('data-'+n);}
     if(has('wlink')){var lx=find(A('wlink'));if(!lx)return;var sd=!!lx.g.side||lx.g.tasks.every(function(t){return t.cont;});wf.grp=sd?'hors':'';wf.hide=false;wf.imp=0;saveWf();render();
       var el=document.getElementById('wr-'+lx.t.id);if(el){try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){el.scrollIntoView();}el.classList.add('flash');setTimeout(function(){el.classList.remove('flash');},1600);}return;}
@@ -302,6 +306,7 @@ export function startApp(store, data, root){
     if(has('wf-imp')){wf.imp=+A('wf-imp');saveWf();render();return;}
     if(has('wf-hide')){wf.hide=!wf.hide;saveWf();render();return;}
     if(has('wf-grp')){wf.grp=A('wf-grp');saveWf();render();return;}
+    if(has('wf-imph')){wf.impH=+A('wf-imph');saveWf();render();return;}
     if(has('wf-lm')){wf.lm=!wf.lm;saveWf();render();return;}
     if(has('wf-lh')){wf.lh=!wf.lh;saveWf();render();return;}
     if(has('wfill')){var sc=S.sections.filter(function(c){return c.id===A('wfill');})[0];if(!sc)return;var mm=tplMissing(sc);
@@ -309,8 +314,10 @@ export function startApp(store, data, root){
       var tpl=TEMPLATES.filter(function(t){return t.id===sc.tpl||(!sc.tpl&&(t.name===sc.name||(t.aliases||[]).indexOf(sc.name)>=0));})[0],nAdd=0;
       var grp=function(name,side){var g=sc.groups.filter(function(x){return x.name===name;})[0];if(!g){g={name:name,tasks:[]};sc.groups.push(g);}if(side)g.side=true;return g;};
       if(tpl)tpl.groups.forEach(function(g){grp(g.name,g.side);});
-      mm.forEach(function(o){var g=grp(o.g,o.side);
-        if(o.upd){['lk','pre','fmt','cont','ph','note'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});if(o.it.goal)o.upd.goal=true;else delete o.upd.goal;if(o.upd.imp===2)o.upd.imp=1;
+      mm.forEach(function(o){
+        if(o.rm){sc.groups.forEach(function(x){var i=x.tasks.indexOf(o.rm);if(i>=0)x.tasks.splice(i,1);});return;}
+        var g=grp(o.g,o.side);
+        if(o.upd){['lk','pre','fmt','cont','ph','note'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});if(o.it.goal)o.upd.goal=true;else delete o.upd.goal;if(o.upd.imp===2)o.upd.imp=1;if(o.it.cont&&o.it.imp===1&&o.upd.imp===3)o.upd.imp=1;
           sc.groups.forEach(function(x){var i=x.tasks.indexOf(o.upd);if(i>=0&&x!==g){x.tasks.splice(i,1);g.tasks.push(o.upd);}});return;}
         g.tasks.push(tplItem(o.it));nAdd++;});
       // ordre des groupes comme dans le modèle, groupes vidés retirés

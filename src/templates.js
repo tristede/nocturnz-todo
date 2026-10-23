@@ -5,6 +5,7 @@
 // imp  = importance conseillée : 1 À regarder · 3 Tu peux skip (sans spoiler, pas officiel)
 // fmt  = format affiché (Série · 9 ép., Spécial…)
 // cont = 'lien' : autre production, avec des personnages repris dans le MCU
+//        (son importance est propre à la liste parallèle, indépendante du MCU)
 // pre  = titres MCU à avoir vus avant pour saisir toutes les références (conseil)
 // lk   = titres de la liste parallèle liés à ce titre (personnages qui y apparaissent)
 const LIEN_SPIDEY = 'Ce Peter Parker revient plus tard dans le MCU.';
@@ -23,7 +24,7 @@ export const TEMPLATES = [
     id: 'mcu-endgame',
     name: 'MCU → Doomsday',
     aliases: ['MCU → Endgame'],
-    desc: 'Tout le MCU par phase jusqu’à Avengers : Doomsday, et en parallèle Spider-Man (Sony), X-Men et 4 Fantastiques (Fox), Netflix.',
+    desc: 'Tout le MCU par phase jusqu’à Avengers : Doomsday, et en parallèle Spider-Man (Sony), X-Men et 4 Fantastiques (Fox), Daredevil et The Punisher (Netflix).',
     color: 'perso',
     groups: [
       { name: 'Phase 1 · 2008-2012', items: [
@@ -103,46 +104,38 @@ export const TEMPLATES = [
         { t: 'Avengers : Doomsday', note: 'Pas encore sorti : liens estimés d’après le casting annoncé.', pre: ['Avengers : Endgame', 'Loki – Saison 2', 'Thunderbolts*', 'Les 4 Fantastiques : Premiers pas', 'Black Panther : Wakanda Forever', 'Shang-Chi et la Légende des Dix Anneaux'], rel: '2026-12-18', imp: 1, goal: true, lk: ['X-Men', 'X-Men 2', 'X-Men : L’Affrontement final'] },
       ] },
       { name: 'Spider-Man de Sony (Maguire, Garfield, Venom)', side: true, items: [
-        L({ t: 'Spider-Man', rel: '2002-05-03', dur: 121, note: LIEN_SPIDEY }),
-        L({ t: 'Spider-Man 2', rel: '2004-06-30', dur: 127, note: LIEN_SPIDEY }),
-        L({ t: 'Spider-Man 3', rel: '2007-05-04', dur: 139, note: LIEN_SPIDEY }),
-        L({ t: 'The Amazing Spider-Man', rel: '2012-07-03', dur: 136, note: LIEN_SPIDEY }),
-        L({ t: 'The Amazing Spider-Man : Le Destin d’un héros', rel: '2014-05-02', dur: 142, note: LIEN_SPIDEY }),
+        L({ t: 'Spider-Man', imp: 1, rel: '2002-05-03', dur: 121, note: LIEN_SPIDEY }),
+        L({ t: 'Spider-Man 2', imp: 1, rel: '2004-06-30', dur: 127, note: LIEN_SPIDEY }),
+        L({ t: 'Spider-Man 3', imp: 1, rel: '2007-05-04', dur: 139, note: LIEN_SPIDEY }),
+        L({ t: 'The Amazing Spider-Man', imp: 1, rel: '2012-07-03', dur: 136, note: LIEN_SPIDEY }),
+        L({ t: 'The Amazing Spider-Man : Le Destin d’un héros', imp: 1, rel: '2014-05-02', dur: 142, note: LIEN_SPIDEY }),
         L({ t: 'Venom', rel: '2018-10-05', dur: 112, note: 'Lien avec le MCU plus tard, secondaire.' }),
         L({ t: 'Venom : Let There Be Carnage', rel: '2021-10-01', dur: 97, note: 'Lien avec le MCU, secondaire.' }),
       ] },
       { name: 'X-Men de la Fox (2000-2019)', side: true, items: [
-        L({ t: 'X-Men', rel: '2000-07-14', dur: 104, note: LIEN_XMEN }),
-        L({ t: 'X-Men 2', rel: '2003-05-02', dur: 134, note: LIEN_XMEN }),
-        L({ t: 'X-Men : L’Affrontement final', rel: '2006-05-26', dur: 104, note: LIEN_XMEN }),
-        L({ t: 'X-Men Origins : Wolverine', rel: '2009-05-01', dur: 107, note: LIEN_XMEN }),
+        L({ t: 'X-Men', imp: 1, rel: '2000-07-14', dur: 104, note: LIEN_XMEN }),
+        L({ t: 'X-Men 2', imp: 1, rel: '2003-05-02', dur: 134, note: LIEN_XMEN }),
+        L({ t: 'X-Men : L’Affrontement final', imp: 1, rel: '2006-05-26', dur: 104, note: LIEN_XMEN }),
+        L({ t: 'X-Men Origins : Wolverine', imp: 1, rel: '2009-05-01', dur: 107, note: LIEN_XMEN }),
         L({ t: 'X-Men : Le Commencement', rel: '2011-06-03', dur: 132, note: LIEN_XMEN }),
         L({ t: 'Wolverine : Le Combat de l’immortel', rel: '2013-07-26', dur: 126, note: LIEN_XMEN }),
-        L({ t: 'X-Men : Days of Future Past', rel: '2014-05-23', dur: 132, note: LIEN_XMEN }),
-        L({ t: 'Deadpool', rel: '2016-02-12', dur: 108, note: 'Deadpool rejoint le MCU plus tard.' }),
+        L({ t: 'X-Men : Days of Future Past', imp: 1, rel: '2014-05-23', dur: 132, note: LIEN_XMEN }),
+        L({ t: 'Deadpool', imp: 1, rel: '2016-02-12', dur: 108, note: 'Deadpool rejoint le MCU plus tard.' }),
         L({ t: 'X-Men : Apocalypse', rel: '2016-05-27', dur: 144, note: LIEN_XMEN }),
-        L({ t: 'Logan', rel: '2017-03-03', dur: 137, note: LIEN_XMEN }),
-        L({ t: 'Deadpool 2', rel: '2018-05-18', dur: 119, note: 'Deadpool rejoint le MCU plus tard.' }),
+        L({ t: 'Logan', imp: 1, rel: '2017-03-03', dur: 137, note: LIEN_XMEN }),
+        L({ t: 'Deadpool 2', imp: 1, rel: '2018-05-18', dur: 119, note: 'Deadpool rejoint le MCU plus tard.' }),
         L({ t: 'X-Men : Dark Phoenix', rel: '2019-06-07', dur: 113, note: LIEN_XMEN }),
       ] },
       { name: 'Les 4 Fantastiques de la Fox (2005-2007)', side: true, items: [
-        L({ t: 'Les 4 Fantastiques', rel: '2005-07-08', dur: 106, note: LIEN_FF }),
+        L({ t: 'Les 4 Fantastiques', imp: 1, rel: '2005-07-08', dur: 106, note: LIEN_FF }),
         L({ t: 'Les 4 Fantastiques et le Surfer d’argent', rel: '2007-06-15', dur: 92, note: LIEN_FF }),
       ] },
-      { name: 'Séries Netflix (Daredevil, Jessica Jones…)', side: true, items: [
-        L({ t: 'Daredevil – Saison 1', rel: '2015-04-10', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'Jessica Jones – Saison 1', rel: '2015-11-20', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'Daredevil – Saison 2', rel: '2016-03-18', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'Luke Cage – Saison 1', rel: '2016-09-30', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'Iron Fist – Saison 1', rel: '2017-03-17', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'The Defenders', rel: '2017-08-18', fmt: 'Mini-série · 8 ép.', note: LIEN_NETFLIX }),
-        L({ t: 'The Punisher – Saison 1', rel: '2017-11-17', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'Jessica Jones – Saison 2', rel: '2018-03-08', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'Luke Cage – Saison 2', rel: '2018-06-22', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'Iron Fist – Saison 2', rel: '2018-09-07', fmt: serie(10), note: LIEN_NETFLIX }),
-        L({ t: 'Daredevil – Saison 3', rel: '2018-10-19', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'The Punisher – Saison 2', rel: '2019-01-18', fmt: serie(13), note: LIEN_NETFLIX }),
-        L({ t: 'Jessica Jones – Saison 3', rel: '2019-06-14', fmt: serie(13), note: LIEN_NETFLIX }),
+      { name: 'Séries Netflix (Daredevil, The Punisher)', side: true, items: [
+        L({ t: 'Daredevil – Saison 1', imp: 1, rel: '2015-04-10', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'Daredevil – Saison 2', imp: 1, rel: '2016-03-18', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'The Punisher – Saison 1', imp: 1, rel: '2017-11-17', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'Daredevil – Saison 3', imp: 1, rel: '2018-10-19', fmt: serie(13), note: LIEN_NETFLIX }),
+        L({ t: 'The Punisher – Saison 2', imp: 1, rel: '2019-01-18', fmt: serie(13), note: LIEN_NETFLIX }),
       ] },
     ],
   },
