@@ -170,55 +170,58 @@ export function startApp(store, data, root){
   }
   /* ---------- Suivi (watchlist) : progression vers un objectif ---------- */
   var IMP={1:{n:'À regarder',c:'oasis'},2:{n:'Mieux de voir',c:'important'},3:{n:'Tu peux skip',c:'later'}};
-  var wf={imp:0,hide:false};try{var wfs=JSON.parse(localStorage.getItem('wf')||'null');if(wfs)wf=wfs;}catch(_){}
+  var wf={imp:0,hide:false,grp:''};try{var wfs=JSON.parse(localStorage.getItem('wf')||'null');if(wfs)wf=wfs;}catch(_){}
   function saveWf(){try{localStorage.setItem('wf',JSON.stringify(wf));}catch(_){}}
   function hm(min){min=Math.round(min||0);var h=Math.floor(min/60),m=min%60;return h?h+' h'+(m?' '+String(m).padStart(2,'0'):''):m+' min';}
   function yr(k){return k?k.slice(0,4):'';}
+  // date de sortie lisible : « 2 mai 2008 » (ou l'année seule si on ne la connaît pas plus précisément)
+  function relDate(k){if(!k)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(k))return k.slice(0,4);return new Date(k+'T12:00').toLocaleDateString('fr-BE',{day:'numeric',month:'short',year:'numeric'});}
   function byRel(a,b){return (a.t.rel||'9999')<(b.t.rel||'9999')?-1:(a.t.rel||'9999')>(b.t.rel||'9999')?1:0;}
   function impTag(i){var m=IMP[i];return m?'<span class="imp" style="--c:var(--'+m.c+')">'+m.n+'</span>':'';}
-  function wrow(x,n){
-    var t=x.t,m=[];if(t.rel)m.push(yr(t.rel));if(t.dur)m.push(hm(t.dur));
+  function wrow(x,n,showGrp){
+    var t=x.t,m=[];if(t.rel)m.push('<span class="reld">'+relDate(t.rel)+'</span>');if(t.fmt)m.push(esc(t.fmt));else if(t.dur)m.push(hm(t.dur));if(showGrp)m.push(esc(x.g.name));
     return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+'" style="--k:'+col(x.s)+'">'+
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme vu : '+esc(t.t)+'">'+
       '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.goal?' <span class="goalb">Objectif</span>':'')+'</span>'+
-      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+impTag(t.imp)+(t.d&&t.at?'<span class="seen">Vu le '+fdate(t.at)+'</span>':'')+(t.note?'<span>'+esc(t.note)+'</span>':'')+'</span></button></li>';
+      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+impTag(t.imp)+(t.cont?'<span class="lien" title="'+esc(t.note||'Autre production, liée au MCU')+'">Lien MCU</span>':'')+(t.d&&t.at?'<span class="seen">Vu le '+fdate(t.at)+'</span>':'')+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button></li>';
   }
   function viewWatch(s,every){
     var si=S.sections.indexOf(s),L=every.filter(function(x){return x.s===s;}).sort(byRel);
-    var goal=L.filter(function(x){return x.t.goal;})[0],G=goal?L.filter(function(x){return (x.t.rel||'')<=(goal.t.rel||'9999');}):L;
+    var goal=L.filter(function(x){return x.t.goal;})[0],main=L.filter(function(x){return !x.t.cont;}),bonus=L.filter(function(x){return !!x.t.cont;});
+    var G=goal?main.filter(function(x){return (x.t.rel||'')<=(goal.t.rel||'9999');}):main;
     var seen=G.filter(function(x){return x.t.d;}),left=G.filter(function(x){return !x.t.d;});
     var ess=left.filter(function(x){return (x.t.imp||1)===1;}),pct=G.length?Math.round(seen.length/G.length*100):0;
     var tAll=left.reduce(function(a,x){return a+(x.t.dur||0);},0),tEss=ess.reduce(function(a,x){return a+(x.t.dur||0);},0);
-    var vis=function(x){return (!wf.imp||(x.t.imp||1)===wf.imp)&&!(wf.hide&&x.t.d);};
-    // prochain titre : le premier pas encore vu, en sautant les « Tu peux skip » (sauf si on filtre dessus)
+    if(wf.grp&&!s.groups.some(function(g){return g.name===wf.grp;}))wf.grp='';
+    var inGrp=function(x){return !wf.grp||x.g.name===wf.grp;};
+    var vis=function(x){return inGrp(x)&&(!wf.imp||(x.t.imp||1)===wf.imp)&&!(wf.hide&&x.t.d);};
     var next=left.filter(function(x){var i=x.t.imp||1;return wf.imp?i===wf.imp:i!==3;})[0]||left[0];
     var h='<div class="pagehead" style="--c:'+col(s)+'"><h2><input class="gname pname inl" type="text" value="'+esc(s.name)+'" data-ck="t" data-cs="'+si+'" enterkeyhint="done" autocomplete="off" aria-label="Renommer le suivi"></h2>'+shareBtn(s,'t')+'</div>';
-    // objectif + progression
     h+='<section class="card whero"><div class="wh-top"><div><div class="eyebrow">'+(goal?'Objectif':'Progression')+'</div><div class="wh-goal">'+(goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
       '<div class="wbar"><i style="width:'+pct+'%"></i></div>'+
       '<div class="wstats"><div><b>'+seen.length+'<small>/'+G.length+'</small></b><span>vus</span></div><div><b>'+hm(tAll)+'</b><span>pour tout voir</span></div><div><b>'+hm(tEss)+'</b><span>essentiel seulement</span></div></div>'+
-      (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[yr(next.t.rel),next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
+      (bonus.length?'<div class="wbonus"><span class="lien">Lien MCU</span> Bonus autres productions : <b>'+bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+'</b> vus · hors progression</div>':'')+
+      (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[relDate(next.t.rel),next.t.fmt||'',next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
         (G.length?'<div class="wnext done-all"><b>'+(goal?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
-    // filtres
-    h+='<div class="chipscroll wfilters">'+[[0,'Tout'],[1,IMP[1].n],[2,IMP[2].n],[3,IMP[3].n]].map(function(f){
-      var n=L.filter(function(x){return !f[0]||(x.t.imp||1)===f[0];}).length;
-      return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]?IMP[f[0]].c:'ink')+')" data-wf-imp="'+f[0]+'" aria-pressed="'+(wf.imp===f[0])+'">'+f[1]+' <span class="n">'+n+'</span></button>';}).join('')+
-      '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
-    // liste par ordre de sortie (numérotée dans l'ordre complet)
-    h+='<section class="card notes">';
-    s.groups.forEach(function(g,gi){
-      var GL=L.filter(function(x){return x.g===g;}),shown=GL.filter(vis);
-      if(s.groups.length>1)h+=gHead('w',si,gi,g,'<span class="gsum">'+GL.filter(function(x){return x.t.d;}).length+'/'+GL.length+'</span>');
-      h+=shown.length?'<ul>'+shown.map(function(x){return wrow(x,L.indexOf(x)+1);}).join('')+'</ul>':'<p class="empty">'+(GL.length?'Rien avec ce filtre.':'Aucun titre pour l’instant.')+'</p>';
-      h+=qline('w',si,gi,0,'Ajouter un titre… (ex. Thor 2011)');
-    });
-    h+='</section>';
-    // historique
+    var miss=tplMissing(s);
+    if(miss.length)h+='<div class="wmiss"><span>'+miss.length+' titre'+(miss.length>1?'s':'')+' ajouté'+(miss.length>1?'s':'')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Ajouter</button></div>';
+    // onglets : par date (tout mélangé) ou une production
+    if(s.groups.length>1)h+='<div class="chipscroll wtabs">'+[['','Ordre de sortie',L]].concat(s.groups.map(function(g){return [g.name,g.name,L.filter(function(x){return x.g===g;})];})).map(function(o){
+      return '<button type="button" class="chipb" data-wf-grp="'+esc(o[0])+'" aria-pressed="'+(wf.grp===o[0])+'">'+esc(o[1])+' <span class="n">'+o[2].filter(function(x){return x.t.d;}).length+'/'+o[2].length+'</span></button>';}).join('')+'</div>';
+    h+='<div class="chipscroll wfilters">'+[[0,'Toute importance'],[1,IMP[1].n],[2,IMP[2].n],[3,IMP[3].n]].map(function(f){
+      return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]?IMP[f[0]].c:'ink')+')" data-wf-imp="'+f[0]+'" aria-pressed="'+(wf.imp===f[0])+'">'+f[1]+'</button>';}).join('')+
+      '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>'+
+      '<p class="wconv">Classés par ordre de sortie · dates de sortie aux États-Unis</p>';
+    // liste
+    var shown=L.filter(vis),g0=wf.grp?s.groups.filter(function(g){return g.name===wf.grp;})[0]:s.groups[0],gi0=s.groups.indexOf(g0);
+    h+='<section class="card notes">'+(wf.grp&&s.groups.length>1?gHead('w',si,gi0,g0,'<span class="gsum">'+L.filter(function(x){return x.g===g0&&x.t.d;}).length+'/'+L.filter(function(x){return x.g===g0;}).length+'</span>'):'')+
+      (shown.length?'<ul>'+shown.map(function(x){return wrow(x,L.indexOf(x)+1,!wf.grp&&s.groups.length>1);}).join('')+'</ul>':'<p class="empty">'+(L.length?'Rien avec ces filtres.':'Aucun titre pour l’instant.')+'</p>')+
+      (gi0>=0?qline('w',si,gi0,0,'Ajouter un titre'+(s.groups.length>1?' dans '+g0.name:'')+'… (ex. Thor 2011)'):'')+'</section>';
     var ev=[];L.forEach(function(x){(x.t.vh||[]).forEach(function(d){ev.push({on:d,t:x.t.t});});});
     ev.sort(function(a,b){return a.on<b.on?1:a.on>b.on?-1:0;});
     h+='<section class="card"><details class="donebox"'+(ev.length&&ev.length<6?' open':'')+'><summary>Historique ('+ev.length+')</summary>'+
       (ev.length?'<ol class="whist">'+ev.slice(0,100).map(function(e){return '<li><span class="hd">'+fdate(e.on)+'</span><span>'+esc(e.t)+'</span></li>';}).join('')+'</ol>':'<p class="empty">Coche un titre quand tu l’as vu : il s’affichera ici avec la date.</p>')+
-      '</details>'+(seen.length?'<div class="btn-row"><button type="button" class="btn danger" data-wreset="'+s.id+'">'+(sh===null&&wreset===s.id?'Confirmer : tout décocher ('+L.filter(function(x){return x.t.d;}).length+')':'Réinitialiser la progression')+'</button></div>':'')+'</section>';
+      '</details>'+(L.some(function(x){return x.t.d;})?'<div class="btn-row"><button type="button" class="btn danger" data-wreset="'+s.id+'">'+(wreset===s.id?'Confirmer : tout décocher ('+L.filter(function(x){return x.t.d;}).length+')':'Réinitialiser la progression')+'</button></div>':'')+'</section>';
     return h;
   }
   var wreset='';
@@ -245,20 +248,29 @@ export function startApp(store, data, root){
     if(sh.d&&!t.d){t.d=true;t.at=dayKey();(t.vh=t.vh||[]).push(t.at);}else if(!sh.d&&t.d){t.d=false;delete t.at;}
     closeSheet();change();
   }
+  function tplItem(it){var o={id:nid('t'),t:it.t,d:false,imp:it.imp||1};['rel','dur','fmt','cont','note'].forEach(function(k){if(it[k])o[k]=it[k];});if(it.goal)o.goal=true;return o;}
+  // Titres du modèle absents du suivi (comparés par titre) : pour compléter un suivi créé avec une ancienne version
+  function tplMissing(s){var tpl=TEMPLATES.filter(function(t){return t.id===s.tpl||(!s.tpl&&t.name===s.name);})[0];if(!tpl)return [];
+    var have={};s.groups.forEach(function(g){g.tasks.forEach(function(t){have[t.t]=1;});});
+    var out=[];tpl.groups.forEach(function(g){g.items.forEach(function(it){if(!have[it.t])out.push({g:g.name,it:it});});});return out;}
   // Crée un suivi (vide ou depuis un modèle) et l'ouvre
   function createWatch(tpl){
-    var s={id:nid('c'),name:tpl?tpl.name:'Nouveau suivi',color:tpl?tpl.color:'contenu',type:'watch',owner:ME.uid,members:[ME.uid],memberInfo:{},
-      groups:[{name:tpl?tpl.group:'Titres',tasks:(tpl?tpl.items:[]).map(function(it){var o={id:nid('t'),t:it.t,d:false,imp:it.imp||1};if(it.rel)o.rel=it.rel;if(it.dur)o.dur=it.dur;if(it.goal)o.goal=true;return o;})}]};
+    var s={id:nid('c'),name:tpl?tpl.name:'Nouveau suivi',color:tpl?tpl.color:'contenu',type:'watch',tpl:tpl?tpl.id:'',owner:ME.uid,members:[ME.uid],memberInfo:{},
+      groups:tpl?tpl.groups.map(function(g){return {name:g.name,tasks:g.items.map(tplItem)};}):[{name:'Titres',tasks:[]}]};
     S.sections.push(s);mode='todo';tab=s.id;try{localStorage.setItem('tab2',tab);localStorage.setItem('mode2','todo');}catch(_){}
     change();window.scrollTo(0,0);toast(tpl?'Suivi « '+tpl.name+' » créé':'Suivi créé');
   }
   document.addEventListener('click',function(e){
-    var b=e.target.closest&&e.target.closest('[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
+    var b=e.target.closest&&e.target.closest('[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
     function A(n){return b.getAttribute('data-'+n);}function has(n){return b.hasAttribute('data-'+n);}
     if(has('wopen')){openWatch(A('wopen'));return;}
     if(has('wseen')){var x=find(A('wseen'));if(x&&!x.t.d){x.t.d=true;x.t.at=dayKey();(x.t.vh=x.t.vh||[]).push(x.t.at);toast('Vu : '+x.t.t);change();}return;}
     if(has('wf-imp')){wf.imp=+A('wf-imp');saveWf();render();return;}
     if(has('wf-hide')){wf.hide=!wf.hide;saveWf();render();return;}
+    if(has('wf-grp')){wf.grp=A('wf-grp');saveWf();render();return;}
+    if(has('wfill')){var sc=S.sections.filter(function(c){return c.id===A('wfill');})[0];if(!sc)return;var mm=tplMissing(sc);
+      mm.forEach(function(o){var g=sc.groups.filter(function(x){return x.name===o.g;})[0];if(!g){g={name:o.g,tasks:[]};sc.groups.push(g);}g.tasks.push(tplItem(o.it));});
+      toast(mm.length+' titre'+(mm.length>1?'s':'')+' ajouté'+(mm.length>1?'s':''));change();return;}
     if(has('wreset')){var id=A('wreset');if(wreset!==id){wreset=id;render();setTimeout(function(){if(wreset===id){wreset='';render();}},5000);return;}
       wreset='';var sec=S.sections.filter(function(c){return c.id===id;})[0];if(sec)sec.groups.forEach(function(g){g.tasks.forEach(function(t){if(t.d){t.d=false;delete t.at;}});});toast('Progression remise à zéro (l’historique est gardé)');change();return;}
     if(has('m-watch')){var key=A('m-watch'),tpl=TEMPLATES.filter(function(t){return t.id===key;})[0]||null;if(sh&&sh.kind==='manage'){syncManage();saveManage();}else if(sh)closeSheet();createWatch(tpl);return;}

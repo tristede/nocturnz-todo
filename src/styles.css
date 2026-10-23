@@ -490,3 +490,11 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .whist{list-style:none;margin:0;padding:0 16px 12px;display:grid;gap:8px}
 .whist li{display:grid;grid-template-columns:56px 1fr;gap:8px;font-size:14px}
 @media (max-width:420px){.wstats b{font-size:16px}.wh-pct{font-size:34px}}
+.lien{display:inline-flex;align-items:center;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--contenu);border:1px solid currentColor;border-radius:999px;padding:1px 7px}
+.wbonus{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wbonus b{color:var(--ink)}
+.wtabs,.wfilters{margin:0;padding:2px 0}
+.wtabs .chipb[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.wmiss{display:flex;align-items:center;gap:12px;justify-content:space-between;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:10px 12px;font-size:14px}
+.reld{color:var(--ink);font-weight:600}
+.wconv{margin:-6px 2px 0;font:500 11px var(--mono);color:var(--muted)}

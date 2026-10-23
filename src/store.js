@@ -11,7 +11,7 @@ export const nid = (p) => p + Date.now().toString(36) + Math.random().toString(3
 export const normEmail = (e) => String(e || '').trim().toLowerCase();
 // tu/tn = qui a posé le tag (uid, pseudo) : les tags sont propres à chaque compte
 // rel/dur/imp/goal/vh = titres d'un suivi (date de sortie, durée, importance, objectif, dates de visionnage)
-const TASK_FIELDS = ['t', 'd', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh'];
+const TASK_FIELDS = ['t', 'd', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh', 'fmt', 'cont'];
 export const SHARED = { todo: '__shared_todo', buy: '__shared_buy' };
 
 function stable(v) {
@@ -130,7 +130,7 @@ export function createStore(user, { onData, onStatus, admin }) {
       const list = [...cats.values()].filter((c) => c.kind === kind)
         .sort((a, b) => ((ord.indexOf(a.id) + 1 || 1e6) - (ord.indexOf(b.id) + 1 || 1e6)) || ((a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0)));
       const secs = list.map((c) => ({
-        id: c.id, name: c.name, color: c.color, type: c.type || '', owner: c.owner, members: c.members, memberInfo: c.memberInfo || {},
+        id: c.id, name: c.name, color: c.color, type: c.type || '', tpl: c.tpl || '', owner: c.owner, members: c.members, memberInfo: c.memberInfo || {},
         groups: (c.groups && c.groups.length ? c.groups : [{ id: 'g0', name: 'Divers' }]).map((g) => ({ id: g.id, name: g.name, tasks: [] })),
       }));
       const byId = new Map(secs.map((s) => [s.id, s]));
@@ -174,6 +174,7 @@ export function createStore(user, { onData, onStatus, admin }) {
         if (!cur) {
           const data = { kind, name: s.name, color: s.color || 'other', groups, owner: me.uid, members: [me.uid], memberInfo: { [me.uid]: info() }, createdAt: serverTimestamp() };
           if (s.type) data.type = s.type;
+          if (s.tpl) data.tpl = s.tpl;
           b.set(doc(db, 'cats', s.id), data); n++;
           cats.set(s.id, { id: s.id, ...data, createdAt: null });
         } else if (cur.name !== s.name || (cur.color || '') !== (s.color || '') || stable(cur.groups || []) !== stable(groups)) {
