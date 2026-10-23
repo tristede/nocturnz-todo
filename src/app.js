@@ -178,23 +178,27 @@ export function startApp(store, data, root){
   function relDate(k){if(!k)return '';if(!/^\d{4}-\d{2}-\d{2}$/.test(k))return k.slice(0,4);return new Date(k+'T12:00').toLocaleDateString('fr-BE',{day:'numeric',month:'short',year:'numeric'});}
   function byRel(a,b){return (a.t.rel||'9999')<(b.t.rel||'9999')?-1:(a.t.rel||'9999')>(b.t.rel||'9999')?1:0;}
   function impTag(i){var m=IMP[i];return m?'<span class="imp" style="--c:var(--'+m.c+')">'+m.n+'</span>':'';}
-  function wrow(x,n,showGrp){
-    var t=x.t,m=[];if(t.rel)m.push('<span class="reld">'+relDate(t.rel)+'</span>');if(t.fmt)m.push(esc(t.fmt));else if(t.dur)m.push(hm(t.dur));if(showGrp)m.push(esc(x.g.name));
-    return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+'" style="--k:'+col(x.s)+'">'+
+  function wrow(x,n,ctx){
+    var t=x.t,m=[];if(t.rel)m.push('<span class="reld">'+relDate(t.rel)+'</span>');if(t.fmt)m.push(esc(t.fmt));else if(t.dur)m.push(hm(t.dur));
+    ctx=ctx||{L:[],back:{}};var today=new Date().toISOString().slice(0,10),badge='';
+    if(t.rel&&t.rel>today)badge='<span class="soonb">À venir</span>';
+    var find2=function(n){return ctx.L.filter(function(y){return y.t.t===n;})[0];};
+    var links=(t.lk||[]).map(find2).filter(Boolean).concat(ctx.back[t.t]||[]);
+    return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+(links.length?' haslinks':'')+'" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme vu : '+esc(t.t)+'">'+
       '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.goal?' <span class="goalb">Objectif</span>':'')+'</span>'+
-      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+impTag(t.imp)+(t.cont?'<span class="lien" title="'+esc(t.note||'Autre production, liée au MCU')+'">Lien MCU</span>':'')+(t.d&&t.at?'<span class="seen">Vu le '+fdate(t.at)+'</span>':'')+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button></li>';
+      '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp)+(t.cont?'<span class="lien" title="'+esc(t.note||'Autre production, liée au MCU')+'">Lien MCU</span>':'')+(t.d&&t.at?'<span class="seen">Vu le '+fdate(t.at)+'</span>':'')+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+
+      (links.length?'<div class="wlinks"><span>'+(t.cont?'Lié à':'Liés')+'</span>'+links.map(function(y){return '<button type="button" class="wlink'+(y.t.d?' seen':'')+'" data-wlink="'+y.t.id+'">'+esc(y.t.t)+'</button>';}).join('')+'</div>':'')+'</li>';
   }
   function viewWatch(s,every){
     var si=S.sections.indexOf(s),L=every.filter(function(x){return x.s===s;}).sort(byRel);
-    var goal=L.filter(function(x){return x.t.goal;})[0],main=L.filter(function(x){return !x.t.cont;}),bonus=L.filter(function(x){return !!x.t.cont;});
+    var side=function(g){return !!g.side||(g.tasks.length>0&&g.tasks.every(function(t){return t.cont;}));};
+    var goal=L.filter(function(x){return x.t.goal;})[0],main=L.filter(function(x){return !side(x.g);}),bonus=L.filter(function(x){return side(x.g);});
+    var ctx={goal:goal,L:L,back:{}};main.forEach(function(x){(x.t.lk||[]).forEach(function(n){(ctx.back[n]=ctx.back[n]||[]).push(x);});});
     var G=goal?main.filter(function(x){return (x.t.rel||'')<=(goal.t.rel||'9999');}):main;
     var seen=G.filter(function(x){return x.t.d;}),left=G.filter(function(x){return !x.t.d;});
     var ess=left.filter(function(x){return (x.t.imp||1)===1;}),pct=G.length?Math.round(seen.length/G.length*100):0;
     var tAll=left.reduce(function(a,x){return a+(x.t.dur||0);},0),tEss=ess.reduce(function(a,x){return a+(x.t.dur||0);},0);
-    if(wf.grp&&!s.groups.some(function(g){return g.name===wf.grp;}))wf.grp='';
-    var inGrp=function(x){return !wf.grp||x.g.name===wf.grp;};
-    var vis=function(x){return inGrp(x)&&(!wf.imp||(x.t.imp||1)===wf.imp)&&!(wf.hide&&x.t.d);};
     var next=left.filter(function(x){var i=x.t.imp||1;return wf.imp?i===wf.imp:i!==3;})[0]||left[0];
     var h='<div class="pagehead" style="--c:'+col(s)+'"><h2><input class="gname pname inl" type="text" value="'+esc(s.name)+'" data-ck="t" data-cs="'+si+'" enterkeyhint="done" autocomplete="off" aria-label="Renommer le suivi"></h2>'+shareBtn(s,'t')+'</div>';
     h+='<section class="card whero"><div class="wh-top"><div><div class="eyebrow">'+(goal?'Objectif':'Progression')+'</div><div class="wh-goal">'+(goal?esc(goal.t.t):esc(s.name))+'</div></div><div class="wh-pct">'+pct+'<small>%</small></div></div>'+
@@ -204,19 +208,33 @@ export function startApp(store, data, root){
       (next?'<div class="wnext"><div class="wn-l"><span class="eyebrow">Prochain</span><b>'+esc(next.t.t)+'</b><small>'+[relDate(next.t.rel),next.t.fmt||'',next.t.dur?hm(next.t.dur):''].filter(Boolean).join(' · ')+'</small></div><button type="button" class="btn" data-wseen="'+next.t.id+'">Vu ✓</button></div>':
         (G.length?'<div class="wnext done-all"><b>'+(goal?'Objectif atteint 🎉':'Tout est vu 🎉')+'</b></div>':''))+'</section>';
     var miss=tplMissing(s);
-    if(miss.length)h+='<div class="wmiss"><span>'+miss.length+' titre'+(miss.length>1?'s':'')+' ajouté'+(miss.length>1?'s':'')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Ajouter</button></div>';
-    // onglets : par date (tout mélangé) ou une production
-    if(s.groups.length>1)h+='<div class="chipscroll wtabs">'+[['','Ordre de sortie',L]].concat(s.groups.map(function(g){return [g.name,g.name,L.filter(function(x){return x.g===g;})];})).map(function(o){
-      return '<button type="button" class="chipb" data-wf-grp="'+esc(o[0])+'" aria-pressed="'+(wf.grp===o[0])+'">'+esc(o[1])+' <span class="n">'+o[2].filter(function(x){return x.t.d;}).length+'/'+o[2].length+'</span></button>';}).join('')+'</div>';
-    h+='<div class="chipscroll wfilters">'+[[0,'Toute importance'],[1,IMP[1].n],[2,IMP[2].n],[3,IMP[3].n]].map(function(f){
+    var nNew=miss.filter(function(o){return !o.upd;}).length;
+    if(miss.length)h+='<div class="wmiss"><span>'+(nNew?nNew+' titre'+(nNew>1?'s':'')+' et des infos ajoutés':'Des infos (phases) ajoutées')+' au modèle depuis la création de ce suivi.</span><button type="button" class="btn ghost" data-wfill="'+s.id+'">Mettre à jour</button></div>';
+    // deux listes séparées : le MCU (par phase) et, en parallèle, les autres productions liées
+    if(wf.grp!=='hors'||!bonus.length)wf.grp='';
+    var hors=wf.grp==='hors';
+    if(bonus.length)h+='<div class="wtabs seg" role="tablist">'+
+      '<button type="button" role="tab" data-wf-grp="" aria-selected="'+!hors+'">MCU <span class="n">'+main.filter(function(x){return x.t.d;}).length+'/'+main.length+'</span></button>'+
+      '<button type="button" role="tab" data-wf-grp="hors" aria-selected="'+hors+'">Hors MCU <span class="n">'+bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+'</span></button></div>';
+    if(!hors)h+='<div class="chipscroll wfilters">'+[[0,'Toute importance'],[1,IMP[1].n],[2,IMP[2].n],[3,IMP[3].n]].map(function(f){
       return '<button type="button" class="chipb'+(f[0]?' tg':'')+'" style="--c:var(--'+(f[0]?IMP[f[0]].c:'ink')+')" data-wf-imp="'+f[0]+'" aria-pressed="'+(wf.imp===f[0])+'">'+f[1]+'</button>';}).join('')+
-      '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>'+
-      '<p class="wconv">Classés par ordre de sortie · dates de sortie aux États-Unis</p>';
-    // liste
-    var shown=L.filter(vis),g0=wf.grp?s.groups.filter(function(g){return g.name===wf.grp;})[0]:s.groups[0],gi0=s.groups.indexOf(g0);
-    h+='<section class="card notes">'+(wf.grp&&s.groups.length>1?gHead('w',si,gi0,g0,'<span class="gsum">'+L.filter(function(x){return x.g===g0&&x.t.d;}).length+'/'+L.filter(function(x){return x.g===g0;}).length+'</span>'):'')+
-      (shown.length?'<ul>'+shown.map(function(x){return wrow(x,L.indexOf(x)+1,!wf.grp&&s.groups.length>1);}).join('')+'</ul>':'<p class="empty">'+(L.length?'Rien avec ces filtres.':'Aucun titre pour l’instant.')+'</p>')+
-      (gi0>=0?qline('w',si,gi0,0,'Ajouter un titre'+(s.groups.length>1?' dans '+g0.name:'')+'… (ex. Thor 2011)'):'')+'</section>';
+      '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
+    else h+='<div class="wintro"><b>À voir avant ou après le MCU</b><span>Autres productions, avec des personnages repris plus tard dans le MCU. Elles ne comptent pas dans ta progression. '+
+      bonus.filter(function(x){return x.t.d;}).length+'/'+bonus.length+' vus · '+hm(bonus.filter(function(x){return !x.t.d;}).reduce(function(a,x){return a+(x.t.dur||0);},0))+' restantes.</span>'+
+      '<button type="button" class="chipb" data-wf-hide aria-pressed="'+!!wf.hide+'">Masquer les vus</button></div>';
+    h+='<p class="wconv">Ordre de sortie · dates de sortie aux États-Unis</p>';
+    var keep=function(x){return !(wf.hide&&x.t.d)&&(hors||!wf.imp||(x.t.imp||1)===wf.imp);};
+    h+='<section class="card notes">';
+    s.groups.forEach(function(g,gi){
+      if(side(g)!==hors)return;
+      var GL=L.filter(function(x){return x.g===g;}),shown=GL.filter(keep);
+      var after=!hors&&goal&&GL.length&&GL.every(function(x){return (x.t.rel||'')>(goal.t.rel||'9999');});
+      h+=gHead('w',si,gi,g,(after?'<span class="afterb">après l’objectif</span>':'')+'<span class="gsum">'+GL.filter(function(x){return x.t.d;}).length+'/'+GL.length+'</span>');
+      h+=shown.length?'<ul>'+shown.map(function(x){return wrow(x,GL.indexOf(x)+1,ctx);}).join('')+'</ul>':(GL.length?'<p class="empty">'+(wf.hide?'Tout est vu ici.':'Rien avec ces filtres.')+'</p>':'');
+      h+=qline('w',si,gi,0,'Ajouter dans '+g.name+'…');
+    });
+    if(!s.groups.some(function(g){return side(g)===hors;}))h+='<p class="empty">Aucun titre pour l’instant.</p>';
+    h+='</section>';
     var ev=[];L.forEach(function(x){(x.t.vh||[]).forEach(function(d){ev.push({on:d,t:x.t.t});});});
     ev.sort(function(a,b){return a.on<b.on?1:a.on>b.on?-1:0;});
     h+='<section class="card"><details class="donebox"'+(ev.length&&ev.length<6?' open':'')+'><summary>Historique ('+ev.length+')</summary>'+
@@ -248,29 +266,43 @@ export function startApp(store, data, root){
     if(sh.d&&!t.d){t.d=true;t.at=dayKey();(t.vh=t.vh||[]).push(t.at);}else if(!sh.d&&t.d){t.d=false;delete t.at;}
     closeSheet();change();
   }
-  function tplItem(it){var o={id:nid('t'),t:it.t,d:false,imp:it.imp||1};['rel','dur','fmt','cont','note'].forEach(function(k){if(it[k])o[k]=it[k];});if(it.goal)o.goal=true;return o;}
+  function tplItem(it){var o={id:nid('t'),t:it.t,d:false,imp:it.imp||1};['rel','dur','fmt','cont','note','ph','lk'].forEach(function(k){if(it[k])o[k]=it[k];});if(it.goal)o.goal=true;return o;}
   // Titres du modèle absents du suivi (comparés par titre) : pour compléter un suivi créé avec une ancienne version
   function tplMissing(s){var tpl=TEMPLATES.filter(function(t){return t.id===s.tpl||(!s.tpl&&t.name===s.name);})[0];if(!tpl)return [];
-    var have={};s.groups.forEach(function(g){g.tasks.forEach(function(t){have[t.t]=1;});});
-    var out=[];tpl.groups.forEach(function(g){g.items.forEach(function(it){if(!have[it.t])out.push({g:g.name,it:it});});});return out;}
+    var have={},where={};s.groups.forEach(function(g){g.tasks.forEach(function(t){have[t.t]=t;where[t.t]=g.name;});});
+    var out=[];tpl.groups.forEach(function(g){g.items.forEach(function(it){var t=have[it.t];
+      if(!t){out.push({g:g.name,side:!!g.side,it:it});return;}
+      var lacks=['lk','fmt','cont'].some(function(k){return it[k]&&!t[k];});
+      if(where[it.t]!==g.name||lacks)out.push({g:g.name,side:!!g.side,it:it,upd:t});});});return out;}
   // Crée un suivi (vide ou depuis un modèle) et l'ouvre
   function createWatch(tpl){
     var s={id:nid('c'),name:tpl?tpl.name:'Nouveau suivi',color:tpl?tpl.color:'contenu',type:'watch',tpl:tpl?tpl.id:'',owner:ME.uid,members:[ME.uid],memberInfo:{},
-      groups:tpl?tpl.groups.map(function(g){return {name:g.name,tasks:g.items.map(tplItem)};}):[{name:'Titres',tasks:[]}]};
+      groups:tpl?tpl.groups.map(function(g){var o={name:g.name,tasks:g.items.map(tplItem)};if(g.side)o.side=true;return o;}):[{name:'Titres',tasks:[]}]};
     S.sections.push(s);mode='todo';tab=s.id;try{localStorage.setItem('tab2',tab);localStorage.setItem('mode2','todo');}catch(_){}
     change();window.scrollTo(0,0);toast(tpl?'Suivi « '+tpl.name+' » créé':'Suivi créé');
   }
   document.addEventListener('click',function(e){
-    var b=e.target.closest&&e.target.closest('[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
+    var b=e.target.closest&&e.target.closest('[data-wlink],[data-wopen],[data-wseen],[data-wf-imp],[data-wf-hide],[data-wf-grp],[data-wfill],[data-wreset],[data-wimp],[data-w-save],[data-w-del],[data-m-watch]');if(!b)return;
     function A(n){return b.getAttribute('data-'+n);}function has(n){return b.hasAttribute('data-'+n);}
+    if(has('wlink')){var lx=find(A('wlink'));if(!lx)return;var sd=!!lx.g.side||lx.g.tasks.every(function(t){return t.cont;});wf.grp=sd?'hors':'';wf.hide=false;wf.imp=0;saveWf();render();
+      var el=document.getElementById('wr-'+lx.t.id);if(el){try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){el.scrollIntoView();}el.classList.add('flash');setTimeout(function(){el.classList.remove('flash');},1600);}return;}
     if(has('wopen')){openWatch(A('wopen'));return;}
     if(has('wseen')){var x=find(A('wseen'));if(x&&!x.t.d){x.t.d=true;x.t.at=dayKey();(x.t.vh=x.t.vh||[]).push(x.t.at);toast('Vu : '+x.t.t);change();}return;}
     if(has('wf-imp')){wf.imp=+A('wf-imp');saveWf();render();return;}
     if(has('wf-hide')){wf.hide=!wf.hide;saveWf();render();return;}
     if(has('wf-grp')){wf.grp=A('wf-grp');saveWf();render();return;}
     if(has('wfill')){var sc=S.sections.filter(function(c){return c.id===A('wfill');})[0];if(!sc)return;var mm=tplMissing(sc);
-      mm.forEach(function(o){var g=sc.groups.filter(function(x){return x.name===o.g;})[0];if(!g){g={name:o.g,tasks:[]};sc.groups.push(g);}g.tasks.push(tplItem(o.it));});
-      toast(mm.length+' titre'+(mm.length>1?'s':'')+' ajouté'+(mm.length>1?'s':''));change();return;}
+      // range chaque titre dans le groupe du modèle (phase / production) sans toucher à ce qui est déjà coché
+      var tpl=TEMPLATES.filter(function(t){return t.id===sc.tpl||(!sc.tpl&&t.name===sc.name);})[0],nAdd=0;
+      var grp=function(name,side){var g=sc.groups.filter(function(x){return x.name===name;})[0];if(!g){g={name:name,tasks:[]};sc.groups.push(g);}if(side)g.side=true;return g;};
+      if(tpl)tpl.groups.forEach(function(g){grp(g.name,g.side);});
+      mm.forEach(function(o){var g=grp(o.g,o.side);
+        if(o.upd){['lk','fmt','cont','ph','note'].forEach(function(k){if(o.it[k]&&!o.upd[k])o.upd[k]=o.it[k];});
+          sc.groups.forEach(function(x){var i=x.tasks.indexOf(o.upd);if(i>=0&&x!==g){x.tasks.splice(i,1);g.tasks.push(o.upd);}});return;}
+        g.tasks.push(tplItem(o.it));nAdd++;});
+      // ordre des groupes comme dans le modèle, groupes vidés retirés
+      if(tpl){var order=tpl.groups.map(function(g){return g.name;});sc.groups=sc.groups.filter(function(g){return g.tasks.length||order.indexOf(g.name)>=0;}).sort(function(a,b){var ia=order.indexOf(a.name),ib=order.indexOf(b.name);return (ia<0?99:ia)-(ib<0?99:ib);});}
+      toast(nAdd?nAdd+' titre'+(nAdd>1?'s':'')+' ajouté'+(nAdd>1?'s':''):'Suivi mis à jour');change();return;}
     if(has('wreset')){var id=A('wreset');if(wreset!==id){wreset=id;render();setTimeout(function(){if(wreset===id){wreset='';render();}},5000);return;}
       wreset='';var sec=S.sections.filter(function(c){return c.id===id;})[0];if(sec)sec.groups.forEach(function(g){g.tasks.forEach(function(t){if(t.d){t.d=false;delete t.at;}});});toast('Progression remise à zéro (l’historique est gardé)');change();return;}
     if(has('m-watch')){var key=A('m-watch'),tpl=TEMPLATES.filter(function(t){return t.id===key;})[0]||null;if(sh&&sh.kind==='manage'){syncManage();saveManage();}else if(sh)closeSheet();createWatch(tpl);return;}

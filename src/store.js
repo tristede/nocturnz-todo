@@ -11,7 +11,7 @@ export const nid = (p) => p + Date.now().toString(36) + Math.random().toString(3
 export const normEmail = (e) => String(e || '').trim().toLowerCase();
 // tu/tn = qui a posé le tag (uid, pseudo) : les tags sont propres à chaque compte
 // rel/dur/imp/goal/vh = titres d'un suivi (date de sortie, durée, importance, objectif, dates de visionnage)
-const TASK_FIELDS = ['t', 'd', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh', 'fmt', 'cont'];
+const TASK_FIELDS = ['t', 'd', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh', 'fmt', 'cont', 'ph', 'lk'];
 export const SHARED = { todo: '__shared_todo', buy: '__shared_buy' };
 
 function stable(v) {
@@ -131,7 +131,7 @@ export function createStore(user, { onData, onStatus, admin }) {
         .sort((a, b) => ((ord.indexOf(a.id) + 1 || 1e6) - (ord.indexOf(b.id) + 1 || 1e6)) || ((a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0)));
       const secs = list.map((c) => ({
         id: c.id, name: c.name, color: c.color, type: c.type || '', tpl: c.tpl || '', owner: c.owner, members: c.members, memberInfo: c.memberInfo || {},
-        groups: (c.groups && c.groups.length ? c.groups : [{ id: 'g0', name: 'Divers' }]).map((g) => ({ id: g.id, name: g.name, tasks: [] })),
+        groups: (c.groups && c.groups.length ? c.groups : [{ id: 'g0', name: 'Divers' }]).map((g) => ({ id: g.id, name: g.name, side: !!g.side, tasks: [] })),
       }));
       const byId = new Map(secs.map((s) => [s.id, s]));
       const shared = { id: SHARED[kind], name: 'Partagées avec moi', color: 'other', virtual: true, members: [], memberInfo: {}, groups: [{ id: '__g', name: 'Partagées avec moi', tasks: [] }] };
@@ -169,7 +169,8 @@ export function createStore(user, { onData, onStatus, admin }) {
         if (!s.id) s.id = nid('c');
         s.groups.forEach((g) => { if (!g.id) g.id = nid('g'); });
         order[kind].push(s.id); seenCats.add(s.id); catKind.set(s.id, s);
-        const groups = s.groups.map((g) => ({ id: g.id, name: g.name }));
+        // side = liste parallèle d'un suivi (autres productions)
+        const groups = s.groups.map((g) => (g.side ? { id: g.id, name: g.name, side: true } : { id: g.id, name: g.name }));
         const cur = cats.get(s.id);
         if (!cur) {
           const data = { kind, name: s.name, color: s.color || 'other', groups, owner: me.uid, members: [me.uid], memberInfo: { [me.uid]: info() }, createdAt: serverTimestamp() };
