@@ -884,8 +884,12 @@ export function startApp(store, data, root){
     (D.sent||[]).forEach(function(v){if(v.status==='accepted')add(v.toEmail);});
     ((D.club&&D.club.invited)||[]).forEach(function(v){if(v.joined)add(v.email,v.name);});
     return Object.keys(out).map(function(k){return out[k];}).sort(function(a,b){return (a.n||a.e).localeCompare(b.n||b.e);});}
+  // répertoire : juste les photos ; le pseudo au survol, et au toucher on sélectionne puis on confirme
   function contactChips(skip){var L=contacts().filter(function(c){return skip.indexOf(c.e)<0;});if(!L.length)return '';
-    return '<section class="sec"><h4 class="sec-h">Contacts</h4><div class="chipscroll">'+L.map(function(c){return '<button type="button" class="chipb contact" data-contact="'+esc(c.e)+'">'+avatar({n:c.n||c.e,ph:c.ph})+esc(c.n||c.e.split('@')[0])+'</button>';}).join('')+'</div></section>';}
+    var pick=sh&&sh.pick?L.filter(function(c){return c.e===sh.pick;})[0]:null;
+    return '<section class="sec"><h4 class="sec-h">Répertoire</h4><div class="chipscroll repo">'+L.map(function(c){var nm=c.n||c.e.split('@')[0];
+      return '<button type="button" class="repo-av'+(pick&&pick.e===c.e?' on':'')+'" data-contact="'+esc(c.e)+'" data-name="'+esc(nm)+'" aria-label="'+esc(nm)+'">'+avatar({n:nm,ph:c.ph})+'</button>';}).join('')+'</div>'+
+      (pick?'<div class="repo-pick"><span>'+esc(pick.n||pick.e.split('@')[0])+'</span><button type="button" class="btn" data-contact-go="'+esc(pick.e)+'">Inviter</button></div>':'')+'</section>';}
   function inviteMsg(){var tg=shareTarget();return 'Je t’ai invité·e sur « '+(tg?tg.name:'ma liste')+' » dans ma Todo. Ouvre '+shareLink()+' et connecte-toi avec '+sh.sentTo+' : l’invitation est dans la cloche 🔔';}
   // Partager avec quelqu'un hors du club = l'inviter aussi au club (1 des 2 places), après confirmation
   function doInvite(email,withClub){
@@ -1043,7 +1047,9 @@ export function startApp(store, data, root){
     if(has('install')&&installEvt){installEvt.prompt();installEvt.userChoice.finally(function(){installEvt=null;if(sh)renderAccount();});return;}
     if(has('logout')){store.signOut();return;}
   });
-  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-contact]');if(!b||!sh)return;var em=b.getAttribute('data-contact');
+  document.addEventListener('click',function(e){if(!sh)return;var b=e.target.closest&&e.target.closest('[data-contact],[data-contact-go]');if(!b)return;
+    if(b.hasAttribute('data-contact')){var em0=b.getAttribute('data-contact');sh.pick=sh.pick===em0?'':em0;if(sh.kind==='share')renderShare();else if(sh.kind==='wshare')renderWShare();return;}
+    var em=b.getAttribute('data-contact-go');sh.pick='';
     if(sh.kind==='share'){doInvite(em);return;}
     if(sh.kind==='wshare'){var i=sheetRoot.querySelector('#ws-email');if(i)i.value=em;wsInvite();return;}});
   document.addEventListener('keydown',function(e){if(sh&&sh.kind==='share'&&e.target.id==='sh-email'&&e.key==='Enter'){e.preventDefault();doInvite();}

@@ -594,3 +594,13 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 /* MCU / Hors MCU sélectionné : léger fond coloré au lieu du contour */
 .wtabs.seg button[aria-selected="true"]{box-shadow:none;background:color-mix(in srgb,var(--isfsc) 16%,var(--surface))}
 .wtabs.seg button[data-wf-grp="hors"][aria-selected="true"]{box-shadow:none;background:color-mix(in srgb,var(--contenu) 16%,var(--surface))}
+/* répertoire d'amis dans les fiches de partage */
+.chipscroll.repo{gap:10px;padding-top:4px;padding-bottom:6px}
+.repo-av{position:relative;flex:none;border:0;background:none;padding:0;border-radius:50%;cursor:pointer}
+.repo-av .av{width:44px;height:44px;font-size:14px;border:2px solid transparent;transition:border-color .15s,transform .15s}
+.repo-av.on .av{border-color:var(--ink)}
+@media (hover:hover){.repo-av:hover .av{transform:translateY(-2px)}
+  .repo-av:hover::after{content:attr(data-name);position:absolute;left:50%;bottom:calc(100% + 4px);transform:translateX(-50%);white-space:nowrap;background:var(--ink);color:var(--on-ink);font-size:12px;font-weight:600;padding:3px 8px;border-radius:6px;pointer-events:none;z-index:2}}
+.repo-pick{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--raise);border-radius:12px;padding:8px 8px 8px 14px}
+.repo-pick span{font-weight:700}
+.repo-pick .btn{padding:8px 14px;font-size:14px}
