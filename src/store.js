@@ -12,7 +12,7 @@ export const normEmail = (e) => String(e || '').trim().toLowerCase();
 // tu/tn = qui a posé le tag (uid, pseudo) : les tags sont propres à chaque compte
 // eb = qui a modifié le texte d'une tâche créée par quelqu'un d'autre
 // rel/dur/imp/goal/vh = titres d'un suivi (date de sortie, durée, importance, objectif, dates de visionnage)
-const TASK_FIELDS = ['t', 'd', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh', 'fmt', 'cont', 'ph', 'lk', 'pre', 'eb'];
+const TASK_FIELDS = ['t', 'd', 'sk', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh', 'fmt', 'cont', 'ph', 'lk', 'pre', 'eb', 'slots', 'from', 'to', 'code', 'nuit', 'bk', 'cat'];
 export const SHARED = { todo: '__shared_todo', buy: '__shared_buy' };
 
 function stable(v) {
@@ -290,7 +290,10 @@ export function createStore(user, { onData, onStatus, admin }) {
     email = normEmail(email);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Adresse email invalide');
     if (email === me.email) throw new Error('C’est ton adresse');
-    const id = type + '_' + targetId + '__' + email;
+    // Les demandes d'amis doivent être uniques par expéditeur et destinataire :
+    // plusieurs personnes peuvent demander le même ami sans se bloquer entre elles.
+    const baseId = type + '_' + targetId + '__' + email;
+    const id = type === 'friend' ? baseId + '__' + me.uid : baseId;
     await setDoc(doc(db, 'invites', id), { type, target: targetId, targetName, kind, from: me.uid, fromName: me.name, fromEmail: me.email, toEmail: email, status: 'pending', createdAt: serverTimestamp() });
     return id;
   }
@@ -307,7 +310,7 @@ export function createStore(user, { onData, onStatus, admin }) {
     if (!/^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/.test(email)) throw new Error('Adresse email invalide');
     if (email === me.email) throw new Error('C’est ton adresse');
     if ((await memberStatus(email)) !== 'none') return false;
-    if (!admin && quota >= CLUB_MAX) throw new Error('Tu as déjà utilisé tes ' + CLUB_MAX + ' invitations');
+    if (!admin && quota >= CLUB_MAX) throw new Error('Tu as déjà utilisé tes ' + CLUB_MAX + ' parrainages');
     const b = writeBatch(db);
     b.set(doc(db, 'access', email), { email, by: me.uid, byName: me.name, joined: false, createdAt: serverTimestamp() });
     if (!admin) b.set(doc(db, 'quota', me.uid), { n: quota + 1, last: email });

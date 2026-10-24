@@ -6,8 +6,8 @@ Appli web installable (PWA) sur https://nocturnz-todo.web.app : connexion Google
 - **Todo & Wishlist** : catégories et groupes, tags personnalisables, glisser-déposer (réordonner, changer de groupe ou d'onglet), menu clic droit / appui long sur un onglet, dates, focus du jour, historique.
 - **Partage** entre amis : une liste entière ou une seule tâche, avec la photo de l'ami qui a ajouté ou modifié une tâche.
 - **Amis** : demandes d'ami par email, acceptées dans la cloche 🔔 ; gestion dans le Profil.
-- **Suivis** (outil activable dans le Profil) : progression vers un objectif, temps restant, historique. Modèle **MARVELVISION** : tout le MCU par phase jusqu'à *Avengers : Doomsday*, et une liste parallèle « Hors MCU » (Sony, Fox, Netflix…) avec liens entre titres. Progression visible entre amis qui suivent le même modèle.
-- **Notifications** réglables, thèmes (Auto, Clair, Sombre, Noir), pseudo et photo de profil.
+- **Suivis** activables modèle par modèle dans le Profil : progression vers un objectif, temps restant, historique, statuts vu et skip, compteurs partagés avec les amis. Modèle **MARVELVISION** : tout le MCU par phase jusqu'à *Avengers : Doomsday*, et une liste parallèle « Hors MCU » (Sony, Fox, Netflix…) avec liens entre titres. Les Marvel One-Shots sont exclus.
+- **Notifications** réglables et regroupées pour les visionnages, thèmes (Auto, Clair, Rose, Marine / noir, Sombre, Noir), pseudo et photo de profil.
 - Mise à jour automatique de la webapp installée (iPhone compris).
 
 ## Développement
@@ -26,5 +26,6 @@ En mode émulateur, `window.__devSignIn('email@x.test', 'Nom')` connecte un comp
 Projet Firebase `nocturnz-todo` (config publique dans `src/firebaseConfig.js`) :
 
 ```bash
-npx vite build && firebase deploy --only hosting,firestore:rules --project nocturnz-todo
+npm run build -- --configLoader runner
+npx firebase-tools deploy --only hosting,firestore:rules --project nocturnz-todo
 ```

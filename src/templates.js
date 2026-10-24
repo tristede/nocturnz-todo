@@ -13,6 +13,7 @@ const LIEN_XMEN = 'Personnages repris plus tard dans le MCU (multivers).';
 const LIEN_NETFLIX = 'Héros repris plus tard dans le MCU.';
 const LIEN_FF = 'Un personnage revient dans Deadpool & Wolverine.';
 const serie = (eps) => 'Série · ' + eps + ' ép.';
+const RES = 'https://ibilaw-reservation.walibi.be/?lang=fr';
 const L = (o) => ({ imp: 3, cont: 'lien', ...o });
 
 const RAIMI = ['Spider-Man', 'Spider-Man 2', 'Spider-Man 3'];
@@ -26,6 +27,13 @@ export const TEMPLATES = [
     aliases: ['Marvel Vision', 'MCU → Doomsday', 'MCU → Endgame'],
     desc: 'Tout le MCU par phase jusqu’à Avengers : Doomsday, et en parallèle le Spider-Verse de Sony, X-Men et 4 Fantastiques (Fox), Blade et Elektra, les séries Netflix.',
     color: 'perso',
+    removed: [
+      'Marvel One-Shots : Le Consultant',
+      'Marvel One-Shots : Un drôle de détour vers le marteau de Thor',
+      'Marvel One-Shots : Item 47',
+      'Marvel One-Shots : Agent Carter',
+      'Marvel One-Shots : Longue vie au roi',
+    ],
     groups: [
       { name: 'Phase 1 · 2008-2012', items: [
         { t: 'Iron Man', rel: '2008-05-02', dur: 126, imp: 1 },
@@ -33,16 +41,11 @@ export const TEMPLATES = [
         { t: 'Iron Man 2', pre: ['Iron Man'], rel: '2010-05-07', dur: 124, imp: 1 },
         { t: 'Thor', pre: ['Iron Man 2'], rel: '2011-05-06', dur: 115, imp: 1 },
         { t: 'Captain America : First Avenger', rel: '2011-07-22', dur: 124, imp: 1 },
-        { t: 'Marvel One-Shots : Le Consultant', rel: '2011-09-13', dur: 4, fmt: 'Court-métrage', imp: 3 },
-        { t: 'Marvel One-Shots : Un drôle de détour vers le marteau de Thor', rel: '2011-10-25', dur: 4, fmt: 'Court-métrage', imp: 3 },
         { t: 'Avengers', pre: ['Iron Man', 'L’Incroyable Hulk', 'Iron Man 2', 'Thor', 'Captain America : First Avenger'], rel: '2012-05-04', dur: 143, imp: 1 },
       ] },
       { name: 'Phase 2 · 2013-2015', items: [
-        { t: 'Marvel One-Shots : Item 47', rel: '2012-09-25', dur: 12, fmt: 'Court-métrage', imp: 3 },
-        { t: 'Marvel One-Shots : Agent Carter', rel: '2013-09-24', dur: 15, fmt: 'Court-métrage', imp: 3 },
         { t: 'Iron Man 3', pre: ['Avengers'], rel: '2013-05-03', dur: 130, imp: 1 },
         { t: 'Thor : Le Monde des ténèbres', pre: ['Thor', 'Avengers'], rel: '2013-11-08', dur: 112, imp: 3 },
-        { t: 'Marvel One-Shots : Longue vie au roi', rel: '2014-02-04', dur: 14, fmt: 'Court-métrage', imp: 3 },
         { t: 'Captain America : Le Soldat de l’hiver', pre: ['Captain America : First Avenger', 'Avengers'], rel: '2014-04-04', dur: 136, imp: 1 },
         { t: 'Les Gardiens de la Galaxie', rel: '2014-08-01', dur: 121, imp: 1 },
         { t: 'Avengers : L’Ère d’Ultron', pre: ['Avengers', 'Iron Man 3', 'Thor : Le Monde des ténèbres', 'Captain America : Le Soldat de l’hiver'], rel: '2015-05-01', dur: 141, imp: 1 },
@@ -165,6 +168,89 @@ export const TEMPLATES = [
         L({ t: 'Daredevil – Saison 3', imp: 1, rel: '2018-10-19', dur: 730, fmt: serie(13), note: LIEN_NETFLIX }),
         L({ t: 'The Punisher – Saison 2', imp: 1, rel: '2019-01-18', dur: 690, fmt: serie(13), note: LIEN_NETFLIX }),
         L({ t: 'Jessica Jones – Saison 3', rel: '2019-06-14', dur: 680, fmt: serie(13), note: LIEN_NETFLIX }),
+      ] },
+    ],
+  },
+  // Suivi « en direct » d'une journée au parc (live) : l'heure remplace le pourcentage,
+  // ce qui est passé se grise tout seul. Heures locales (Bruxelles) du jour indiqué.
+  // Horaires, numéros et 🌙 d'après le plan officiel Ibilaw 2026 (colonne du 25/10) ; zones d'après walibi.be.
+  // slots = séances · from/to = ouvert de… à… · price = prix affiché · code = repère du plan
+  // nuit  = ouvert jusqu'à la fermeture de nuit 🌙 · bk = lien de réservation
+  // cat   = frissons / famille / enfants (comme sur le plan) · map = plan du parc (fichier dans public/maps, gardé hors ligne)
+  {
+    id: 'ibilaw-2026',
+    name: 'Ibilaw 2026',
+    desc: 'Walibi Halloween, dimanche 25 octobre 2026 : maisons hantées, spectacles et attractions en temps réel, avec les prix.',
+    color: 'urgent',
+    live: { day: '2026-10-25', close: '22:00' },
+    map: '/maps/ibilaw-2026.jpg',
+    removed: ['Speedy (coupe-file)'],
+    groups: [
+      { name: 'Expériences', items: [
+        { t: 'Bill : A Fairy Tale', code: 'I', slots: ['13:30', '15:00', '16:30', '18:00'] },
+        { t: 'Bill’s Procession', slots: ['19:00'] },
+        { t: 'Freaky Pizza Festival', bk: 'https://www.walibi.be/halloween-walibi/fr/tickets#freaky', code: 'J', price: '24,90 €', from: '11:00', to: '21:30' },
+      ] },
+      { name: 'Maisons hantées', items: [
+        { t: 'Aquarium', bk: RES, code: 'B', price: '7,50 €', from: '13:00', to: '22:00' },
+        { t: 'Silence', bk: RES, code: 'C', price: '7,50 €', from: '14:00', to: '22:00' },
+        { t: 'The Grand Hotel', bk: RES, code: 'A', price: '8,50 €', from: '12:00', to: '22:00' },
+        { t: 'Mine Blast', bk: RES, code: 'D', from: '16:00', to: '22:00' },
+      ] },
+      { name: 'Scare zones', items: [
+        { t: 'Psycho Circus', code: 'H', from: '10:30', to: '22:00' },
+        { t: 'Innocence', code: 'F', from: '13:00', to: '22:00' },
+        { t: 'Hecatomb', code: 'E', from: '14:00', to: '22:00' },
+        { t: 'Arachnophobia', code: 'G', from: '15:00', to: '22:00' },
+      ] },
+      { name: 'Walibi Boulevard', side: true, items: [
+        { t: 'Grand Carrousel', cat: 'famille', code: '2', nuit: true },
+        { t: 'Dracula 4D', cat: 'famille', code: '6', nuit: true },
+      ] },
+      { name: 'Loup-Garou', side: true, items: [
+        { t: 'Loup-Garou', cat: 'frissons', code: '5', nuit: true },
+        { t: 'Vampire', cat: 'frissons', code: '1', nuit: true },
+        { t: 'Spinning Vibe', cat: 'frissons', code: '7', nuit: true },
+        { t: 'Wave Swinger', cat: 'famille', code: '4', nuit: true },
+        { t: 'Melody Road', cat: 'famille', code: '3', nuit: true },
+      ] },
+      { name: 'Karma World', side: true, items: [
+        { t: 'Cobra', cat: 'frissons', code: '43', nuit: true },
+        { t: 'Popcorn Revenge', cat: 'famille', code: '42', nuit: true },
+        { t: 'Radja River', cat: 'famille', code: '40' },
+        { t: 'Palais du Génie', cat: 'famille', code: '39', nuit: true },
+        { t: 'Tapis Volant', cat: 'famille', code: '41' },
+      ] },
+      { name: 'Fun World', side: true, items: [
+        { t: 'Fun Pilot', cat: 'enfants', code: '38', nuit: true },
+        { t: '4x4 Adventure', cat: 'enfants', code: '31' },
+        { t: 'Bubble Swirl', cat: 'enfants', code: '34' },
+        { t: 'Fun Recorder', cat: 'enfants', code: '35' },
+        { t: 'Graffiti Shuttle', cat: 'enfants', code: '33' },
+        { t: 'Mini Tour', cat: 'enfants', code: '37' },
+        { t: 'Tree House', cat: 'enfants', code: '32' },
+      ] },
+      { name: 'Dock World', side: true, items: [
+        { t: 'Pulsar', cat: 'frissons', code: '8', nuit: true },
+        { t: 'Turbine', cat: 'frissons', code: '30', nuit: true },
+        { t: 'Mecalodon', cat: 'famille', code: '36', nuit: true },
+        { t: 'Flash-Back', cat: 'famille', code: '29' },
+        { t: 'Tous en boîte', cat: 'famille', code: '28', nuit: true },
+        { t: 'Stormy', cat: 'enfants', code: '28', nuit: true },
+      ] },
+      { name: 'Adventure World', side: true, items: [
+        { t: 'Dalton Terror', cat: 'frissons', code: '16', nuit: true },
+        { t: 'Buzzsaw', cat: 'frissons', code: '15', nuit: true },
+        { t: 'Calamity Mine', cat: 'famille', code: '17', nuit: true },
+        { t: 'Silverton', cat: 'famille', code: '14', nuit: true },
+        { t: 'Poneys', cat: 'enfants', code: '19' },
+      ] },
+      { name: 'Exotic World', side: true, items: [
+        { t: 'Kondaa', cat: 'frissons', code: '23', nuit: true },
+        { t: 'Tiki-Waka', cat: 'famille', code: '26', nuit: true },
+        { t: 'Challenge of Tutankhamon', cat: 'famille', code: '25', nuit: true },
+        { t: 'Tiki-Trail', cat: 'famille', code: '20', nuit: true },
+        { t: 'Octopus', cat: 'famille', code: '21', nuit: true },
       ] },
     ],
   },

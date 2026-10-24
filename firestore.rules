@@ -3,7 +3,7 @@ rules_version = '2';
 //   users/{uid}        profil + ordre des catégories + focus du jour (privé)
 //   cats/{id}          catégorie (todo ou wishlist) avec ses sous-catégories ; members = qui la voit et la modifie
 //   tasks/{id}         tâche ou article ; visible par les membres de sa catégorie + guests (partage d'une seule tâche)
-//   invites/{id}       invitation par email, id = <type>_<cible>__<email>
+//   invites/{id}       invitation par email ; les demandes d'amis ajoutent l'expéditeur à l'id
 //   notifs/{id}        notification pour un utilisateur (cloche)
 //   access/{email}     carte de membre du club (accès sur invitation) ; by = qui a invité
 //   quota/{uid}        nombre d'invitations club utilisées (2 max, sauf admins)
@@ -151,7 +151,9 @@ service cloud.firestore {
         && request.resource.data.toEmail is string
         && request.resource.data.toEmail == request.resource.data.toEmail.lower()
         && request.resource.data.toEmail != myEmail()
-        && id == request.resource.data.type + '_' + request.resource.data.target + '__' + request.resource.data.toEmail
+        && (id == request.resource.data.type + '_' + request.resource.data.target + '__' + request.resource.data.toEmail
+          || (request.resource.data.type == 'friend'
+            && id == request.resource.data.type + '_' + request.resource.data.target + '__' + request.resource.data.toEmail + '__' + me()))
         && canShare(request.resource.data);
       allow update: if signed() && (
         // le destinataire accepte ou refuse
