@@ -19,7 +19,7 @@
 
 - Dépôt : `tristede/nocturnz-todo`, branche `main`, projet Firebase `nocturnz-todo`, site `https://nocturnz-todo.web.app`.
 - Dernier état vérifié le 24 octobre 2026 : branche locale `main` avec un commit en avance sur `origin/main`, plus des modifications locales non commitées dans `firestore.rules`, `src/app.js`, `src/main.js`, `src/store.js`, `src/styles.css` et `src/templates.js`. Préserver ces modifications et les inspecter avant de les modifier.
-- Dernière publication vérifiée le 24 octobre 2026 (Hosting + règles) : HTTP 200, `/version.json` = `1792879484124` (commit `2d8aec0`, site + règles ; la fonction `push` n’est pas déployée).
+- Dernière publication vérifiée le 24 octobre 2026 (Hosting + règles) : HTTP 200, `/version.json` = `1792880646035` (commit `92da617`, site + règles) ; fonction `push` déployée (europe-west1), en attente de la clé VAPID.
 - Le build peut afficher l’avertissement Vite indiquant que le bundle JavaScript minifié dépasse 500 kB ; le build peut néanmoins réussir.
 
 ## Commandes
