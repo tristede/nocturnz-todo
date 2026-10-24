@@ -844,10 +844,11 @@ export function startApp(store, data, root){
     var tg=shareTarget();if(!tg){closeSheet();return;}
     var sec=tg.sec,isMember=sec&&!sec.virtual&&sec.members.indexOf(ME.uid)>=0,owner=sec&&sec.owner===ME.uid,h='';
     if(sh.type==='cat'){
-      h+='<div class="field"><span class="lbl">Membres ('+sec.members.length+')</span><ul class="people">'+sec.members.map(function(u){var i=sec.memberInfo[u]||{};
+      var others=sec.members.filter(function(u){return u!==ME.uid;});
+      if(others.length||!owner)h+='<div class="field"><span class="lbl">Membres ('+others.length+')</span><ul class="people">'+others.map(function(u){var i=sec.memberInfo[u]||{};
         return '<li>'+avatar(i)+'<span class="pp"><b>'+esc(u===ME.uid?'Toi':(i.n||i.e||'Membre'))+'</b><small>'+esc(i.e||'')+(u===sec.owner?' · propriétaire':'')+'</small></span>'+
           (owner&&u!==ME.uid?'<button type="button" class="mini danger" data-sh-rm="'+u+'">Retirer</button>':'')+
-          (!owner&&u===ME.uid?'<button type="button" class="mini danger" data-sh-leave>Quitter</button>':'')+'</li>';}).join('')+'</ul></div>';
+          '</li>';}).join('')+'</ul>'+(!owner?'<button type="button" class="tbtn danger" data-sh-leave>Quitter la liste</button>':'')+'</div>';
     }else{
       var x=tg.x,gs=x.t.guests||[];
       if(!x.s.virtual)h+='<p class="hint flush">'+(sec.members.length>1?'Déjà visible par les '+sec.members.length+' membres de « '+esc(sec.name)+' ». ':'')+'Invite quelqu’un pour cette tâche seulement : elle apparaîtra dans « Partagées avec moi ».</p>';
@@ -887,9 +888,9 @@ export function startApp(store, data, root){
   // répertoire : juste les photos ; le pseudo au survol, et au toucher on sélectionne puis on confirme
   function contactChips(skip){var L=contacts().filter(function(c){return skip.indexOf(c.e)<0;});if(!L.length)return '';
     var pick=sh&&sh.pick?L.filter(function(c){return c.e===sh.pick;})[0]:null;
-    return '<section class="sec"><h4 class="sec-h">Répertoire</h4><div class="chipscroll repo">'+L.map(function(c){var nm=c.n||c.e.split('@')[0];
-      return '<button type="button" class="repo-av'+(pick&&pick.e===c.e?' on':'')+'" data-contact="'+esc(c.e)+'" data-name="'+esc(nm)+'" aria-label="'+esc(nm)+'">'+avatar({n:nm,ph:c.ph})+'</button>';}).join('')+'</div>'+
-      (pick?'<div class="repo-pick"><span>'+esc(pick.n||pick.e.split('@')[0])+'</span><button type="button" class="btn" data-contact-go="'+esc(pick.e)+'">Inviter</button></div>':'')+'</section>';}
+    return '<section class="sec"><h4 class="sec-h">Amis</h4><div class="chipscroll repo">'+L.map(function(c){var nm=c.n||c.e.split('@')[0],on=pick&&pick.e===c.e;
+      return '<span class="repo-it'+(on?' on':'')+'"><button type="button" class="repo-av" data-contact="'+esc(c.e)+'" data-name="'+esc(nm)+'" aria-label="'+esc(nm)+'">'+avatar({n:nm,ph:c.ph})+'</button>'+
+        (on?'<button type="button" class="repo-go" data-contact-go="'+esc(c.e)+'" aria-label="Inviter '+esc(nm)+'">Inviter</button>':'')+'</span>';}).join('')+'</div></section>';}
   function inviteMsg(){var tg=shareTarget();return 'Je t’ai invité·e sur « '+(tg?tg.name:'ma liste')+' » dans ma Todo. Ouvre '+shareLink()+' et connecte-toi avec '+sh.sentTo+' : l’invitation est dans la cloche 🔔';}
   // Partager avec quelqu'un hors du club = l'inviter aussi au club (1 des 2 places), après confirmation
   function doInvite(email,withClub){
