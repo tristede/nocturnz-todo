@@ -13,7 +13,7 @@ const LIEN_XMEN = 'Personnages repris plus tard dans le MCU (multivers).';
 const LIEN_NETFLIX = 'Héros repris plus tard dans le MCU.';
 const LIEN_FF = 'Un personnage revient dans Deadpool & Wolverine.';
 const serie = (eps) => 'Série · ' + eps + ' ép.';
-const RES = 'https://ibilaw-reservation.walibi.be/?lang=fr';
+const RES = 'https://reservation.walibi.be/addons/TDCSHLWNHH?theme=HALLOWEEN';
 const L = (o) => ({ imp: 3, cont: 'lien', ...o });
 
 const RAIMI = ['Spider-Man', 'Spider-Man 2', 'Spider-Man 3'];
@@ -187,21 +187,21 @@ export const TEMPLATES = [
     removed: ['Speedy (coupe-file)'],
     groups: [
       { name: 'Expériences', items: [
-        { t: 'Bill : A Fairy Tale', code: 'I', slots: ['13:30', '15:00', '16:30', '18:00'] },
+        { t: 'Bill : A Fairy Tale', slots: ['13:30', '15:00', '16:30', '18:00'] },
         { t: 'Bill’s Procession', slots: ['19:00'] },
-        { t: 'Freaky Pizza Festival', bk: 'https://www.walibi.be/halloween-walibi/fr/tickets#freaky', code: 'J', price: '24,90 €', from: '11:00', to: '21:30' },
+        { t: 'Freaky Pizza Festival', bk: 'https://reservation.walibi.be/addons/WBECSTDRHLWFKPZ?theme=HALLOWEEN&addon_loaded=true', price: '24,90 €', from: '11:00', to: '21:30' },
       ] },
       { name: 'Maisons hantées', items: [
-        { t: 'Aquarium', bk: RES, code: 'B', price: '7,50 €', from: '13:00', to: '22:00' },
-        { t: 'Silence', bk: RES, code: 'C', price: '7,50 €', from: '14:00', to: '22:00' },
-        { t: 'The Grand Hotel', bk: RES, code: 'A', price: '8,50 €', from: '12:00', to: '22:00' },
-        { t: 'Mine Blast', bk: RES, code: 'D', from: '16:00', to: '22:00' },
+        { t: 'Aquarium', bk: RES, price: '7,50 €', from: '13:00', to: '22:00' },
+        { t: 'Silence', bk: RES, price: '7,50 €', from: '14:00', to: '22:00' },
+        { t: 'The Grand Hotel', bk: RES, price: '8,50 €', from: '12:00', to: '22:00' },
+        { t: 'Mine Blast', bk: RES, from: '16:00', to: '22:00' },
       ] },
       { name: 'Scare zones', items: [
-        { t: 'Psycho Circus', code: 'H', from: '10:30', to: '22:00' },
-        { t: 'Innocence', code: 'F', from: '13:00', to: '22:00' },
-        { t: 'Hecatomb', code: 'E', from: '14:00', to: '22:00' },
-        { t: 'Arachnophobia', code: 'G', from: '15:00', to: '22:00' },
+        { t: 'Psycho Circus', from: '10:30', to: '22:00' },
+        { t: 'Innocence', from: '13:00', to: '22:00' },
+        { t: 'Hecatomb', from: '14:00', to: '22:00' },
+        { t: 'Arachnophobia', from: '15:00', to: '22:00' },
       ] },
       { name: 'Walibi Boulevard', side: true, items: [
         { t: 'Grand Carrousel', cat: 'famille', code: '2', nuit: true },

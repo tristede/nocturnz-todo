@@ -679,7 +679,6 @@ details.tagsd[open] > summary .chev{transform:rotate(90deg)}
 .lring circle.fg{stroke:var(--rc);stroke-linecap:round;transition:stroke-dasharray .4s}
 .lring b{position:relative;font:600 10px/1 var(--mono);color:var(--ink);text-align:center;letter-spacing:-.02em}
 .lring.open{--rc:var(--oasis)}
-.lring.hot{--rc:var(--urgent)}
 .lrow{align-items:center}
 .lrow .body{flex:1;min-width:0;display:grid;gap:3px;text-align:left;padding:2px 0}
 .lrow .meta{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:12.5px;color:var(--muted)}
@@ -719,3 +718,13 @@ body.mapv-on{overflow:hidden}
 .mapv .lseg .lmap[aria-current="true"]{color:var(--ink)}
 .mapv.hasbar .mv-z{bottom:calc(env(safe-area-inset-bottom) + 84px)}
 :root[data-theme="rouge"] body{background-image:url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180"%3E%3Cg fill="%23a0a0a8" fill-opacity=".08"%3E%3Cpath id="g" d="M30 18c-11 0-19 9-19 20v26l5-4 5 4 5-4 4 4 5-4 5 4 5-4 4 4V38c0-11-8-20-19-20Zm-7 16a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm13 0a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z" fill-rule="evenodd"/%3E%3Cuse href="%23g" transform="translate%2895 85%29 rotate%2812 30 40%29"/%3E%3C/g%3E%3C/svg%3E');background-size:180px 180px;background-attachment:fixed}
+.grab{position:relative}
+.grab::before{content:"";position:absolute;inset:-14px -70px}
+.mv-stage img{outline:2.5px solid var(--urgent);outline-offset:0}
+.tab.pinned{font-weight:800}
+/* réordonner les onglets */
+.tab.tdrag{position:relative;z-index:3;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:none}
+.tab.ins-l{box-shadow:inset 3px 0 0 var(--ink)}.tab.ins-r{box-shadow:inset -3px 0 0 var(--ink)}
+body.tabdragging,body.tabdragging *{cursor:grabbing!important;user-select:none;-webkit-user-select:none}
+.lwarn{display:inline-block;width:16px;height:16px;margin-left:4px;vertical-align:-2px}
+.lring.warn b{color:var(--urgent)}

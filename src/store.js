@@ -353,6 +353,12 @@ export function createStore(user, { onData, onStatus, admin }) {
   }
 
   const savePrefs = (prefs) => setDoc(doc(db, 'users', me.uid), { prefs }, { merge: true }).catch(err);
+  // jetons push de mes appareils (lus par la fonction d'envoi, côté serveur)
+  async function savePushToken(token, old) {
+    await setDoc(doc(db, 'users', me.uid), { pushTokens: arrayUnion(token) }, { merge: true });
+    if (old) await updateDoc(doc(db, 'users', me.uid), { pushTokens: arrayRemove(old) }).catch(() => {});
+  }
+  const removePushToken = (token) => updateDoc(doc(db, 'users', me.uid), { pushTokens: arrayRemove(token) }).catch(err);
   // Pseudo : profil + carte d'accès + fiche membre dans chaque liste partagée + invité sur une tâche
   async function savePseudo(name) {
     name = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 30);
@@ -400,5 +406,5 @@ export function createStore(user, { onData, onStatus, admin }) {
   }
 
   function stop() { unsubs.forEach((u) => u()); catUnsubs.forEach((u) => u()); progUnsubs.forEach((u) => u()); }
-  return { me, commit, invite, cancelInvite, memberStatus, clubInvite, cancelClubInvite, accept, decline, removeMember, removeGuest, readAll, clearNotifs, savePrefs, savePseudo, savePhoto, saveProgress, myProgress, removeFriend, notify, stop, current: snapshot };
+  return { me, savePushToken, removePushToken, commit, invite, cancelInvite, memberStatus, clubInvite, cancelClubInvite, accept, decline, removeMember, removeGuest, readAll, clearNotifs, savePrefs, savePseudo, savePhoto, saveProgress, myProgress, removeFriend, notify, stop, current: snapshot };
 }

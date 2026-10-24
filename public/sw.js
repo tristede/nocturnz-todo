@@ -1,5 +1,5 @@
 // Service worker minimal : l'appli s'ouvre hors ligne (les données, elles, sont gardées par le cache Firestore).
-const CACHE = 'todo-v3';
+const CACHE = 'todo-v4';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {
@@ -23,4 +23,23 @@ self.addEventListener('fetch', (e) => {
     if (r.ok && (u.pathname.startsWith('/assets/') || SHELL.includes(u.pathname))) { const c = r.clone(); caches.open(CACHE).then((x) => x.put(e.request, c)); }
     return r;
   })));
+});
+
+// Notifications push (envoyées par la fonction « push » à chaque nouvelle notification de la cloche)
+self.addEventListener('push', (e) => {
+  let j = {};
+  try { j = e.data ? e.data.json() : {}; } catch (_) {}
+  const d = j.data || j || {};
+  const n = j.notification || {};
+  e.waitUntil(self.registration.showNotification(d.title || n.title || 'Nocturnz/todo', {
+    body: d.body || n.body || '', icon: '/icon-192.png', badge: '/icon-192.png', tag: d.tag || undefined, data: { url: d.url || '/' },
+  }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    const c = cs.find((x) => new URL(x.url).origin === location.origin);
+    return c ? c.focus() : self.clients.openWindow(url);
+  }));
 });

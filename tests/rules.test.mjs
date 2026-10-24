@@ -174,6 +174,10 @@ await t('suivi : ensuite Sara ne voit plus Adam', () => assertFails(getDoc(doc(s
 await t('ami : demande d’ami', () => assertSucceeds(setDoc(doc(adam, 'invites/friend_ami__lea@x.test'), { type: 'friend', target: 'ami', targetName: 'ami', kind: 'todo', from: 'adam', fromName: 'Adam', toEmail: 'lea@x.test', status: 'pending' })));
 await t('ami : cible invalide refusée', () => assertFails(setDoc(doc(adam, 'invites/friend_x__lea@x.test'), { type: 'friend', target: 'x', targetName: 'x', kind: 'todo', from: 'adam', fromName: 'Adam', toEmail: 'lea@x.test', status: 'pending' })));
 await t('ami : Léa accepte', async () => { const b = writeBatch(lea); b.set(doc(lea, 'friends/ami__' + pr('adam', 'lea')), { tpl: 'ami', users: ['adam', 'lea'], names: {} }); b.update(doc(lea, 'invites/friend_ami__lea@x.test'), { status: 'accepted' }); await assertSucceeds(b.commit()); });
+// ID de demande par expéditeur (friend_ami__<email>__<uid>) : c'est le format envoyé par l'appli
+await t('ami : demande avec ID par expéditeur', () => assertSucceeds(setDoc(doc(sara, 'invites/friend_ami__zoe@x.test__sara'), { type: 'friend', target: 'ami', targetName: 'ami', kind: 'todo', from: 'sara', fromName: 'Sara', toEmail: 'zoe@x.test', status: 'pending' })));
+await t('ami : Zoé accepte (ID par expéditeur)', async () => { const b = writeBatch(zoe); b.set(doc(zoe, 'friends/ami__' + pr('sara', 'zoe')), { tpl: 'ami', users: ['sara', 'zoe'], names: {} }); b.update(doc(zoe, 'invites/friend_ami__zoe@x.test__sara'), { status: 'accepted' }); await assertSucceeds(b.commit()); });
+await t('ami : pas de lien avec un tiers via la demande d’un autre', () => assertFails(setDoc(doc(zoe, 'friends/ami__' + pr('adam', 'zoe')), { tpl: 'ami', users: ['adam', 'zoe'], names: {} })));
 await t('ami : l’amitié ne donne pas accès à la progression d’un suivi', () => assertFails(getDoc(doc(lea, 'progress/adam__' + T))));
 
 await env.cleanup();
