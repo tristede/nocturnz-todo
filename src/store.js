@@ -10,8 +10,9 @@ import {
 export const nid = (p) => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 export const normEmail = (e) => String(e || '').trim().toLowerCase();
 // tu/tn = qui a posé le tag (uid, pseudo) : les tags sont propres à chaque compte
+// eb = qui a modifié le texte d'une tâche créée par quelqu'un d'autre
 // rel/dur/imp/goal/vh = titres d'un suivi (date de sortie, durée, importance, objectif, dates de visionnage)
-const TASK_FIELDS = ['t', 'd', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh', 'fmt', 'cont', 'ph', 'lk', 'pre'];
+const TASK_FIELDS = ['t', 'd', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh', 'fmt', 'cont', 'ph', 'lk', 'pre', 'eb'];
 export const SHARED = { todo: '__shared_todo', buy: '__shared_buy' };
 
 function stable(v) {
@@ -268,7 +269,7 @@ export function createStore(user, { onData, onStatus, admin }) {
       b.set(doc(db, 'users', me.uid), { order, focus }, { merge: true }); n++;
       profile = { ...profile, order, focus };
     }
-    notes.slice(0, 50).forEach((x) => { b.set(doc(collection(db, 'notifs')), { ...x, from: me.uid, fromName: me.name, read: false, createdAt: serverTimestamp() }); n++; });
+    notes.slice(0, 50).forEach((x) => { b.set(doc(collection(db, 'notifs')), { ...x, kind: 'list', from: me.uid, fromName: me.name, read: false, createdAt: serverTimestamp() }); n++; });
     if (!n) return Promise.resolve();
     onStatus && onStatus('Synchro…');
     return b.commit().then(() => onStatus && onStatus(navigator.onLine === false ? 'Hors ligne' : ''), (e) => { err(e); emit(); });
@@ -320,7 +321,7 @@ export function createStore(user, { onData, onStatus, admin }) {
       b.update(doc(db, 'tasks', inv.target), { guests: arrayUnion(me.uid), ['guestInfo.' + me.uid]: info() });
     }
     b.update(doc(db, 'invites', inv.id), { status: 'accepted', answeredAt: serverTimestamp() });
-    b.set(doc(collection(db, 'notifs')), { to: inv.from, from: me.uid, fromName: me.name, text: me.name + (inv.type === 'friend' ? ' a accepté ta demande d’ami' : inv.type === 'watch' ? ' suit « ' + inv.targetName + ' » avec toi' : ' a rejoint « ' + inv.targetName + ' »'), read: false, createdAt: serverTimestamp() });
+    b.set(doc(collection(db, 'notifs')), { to: inv.from, kind: 'social', from: me.uid, fromName: me.name, text: me.name + (inv.type === 'friend' ? ' a accepté ta demande d’ami' : inv.type === 'watch' ? ' suit « ' + inv.targetName + ' » avec toi' : ' a rejoint « ' + inv.targetName + ' »'), read: false, createdAt: serverTimestamp() });
     await b.commit();
     if (inv.type === 'cat' && profile) {
       const order = { todo: [], buy: [], ...(profile.order || {}) }, k = inv.kind === 'buy' ? 'buy' : 'todo';
@@ -365,6 +366,14 @@ export function createStore(user, { onData, onStatus, admin }) {
     try { const s = await getDoc(doc(db, 'progress', me.uid + '__' + tpl)); return s.exists() ? s.data() : null; } catch (_) { return null; }
   }
   const removeFriend = (id) => deleteDoc(doc(db, 'friends', id));
+  // notification simple vers des amis (ex. « X a vu … » dans un suivi partagé)
+  function notify(uids, text, extra) {
+    const to = [...new Set(uids)].filter((u) => u && u !== me.uid);
+    if (!to.length) return Promise.resolve();
+    const b = writeBatch(db);
+    to.slice(0, 50).forEach((u) => b.set(doc(collection(db, 'notifs')), { to: u, from: me.uid, fromName: me.name, text: String(text).slice(0, 380), read: false, createdAt: serverTimestamp(), ...(extra || {}) }));
+    return b.commit().catch(err);
+  }
   // Photo de profil (petite image, ou '' pour reprendre celle du compte Google)
   async function savePhoto(dataUrl) {
     me.photo = dataUrl || user.photoURL || '';
@@ -378,5 +387,5 @@ export function createStore(user, { onData, onStatus, admin }) {
   }
 
   function stop() { unsubs.forEach((u) => u()); catUnsubs.forEach((u) => u()); progUnsubs.forEach((u) => u()); }
-  return { me, commit, invite, cancelInvite, memberStatus, clubInvite, cancelClubInvite, accept, decline, removeMember, removeGuest, readAll, clearNotifs, savePrefs, savePseudo, savePhoto, saveProgress, myProgress, removeFriend, stop, current: snapshot };
+  return { me, commit, invite, cancelInvite, memberStatus, clubInvite, cancelClubInvite, accept, decline, removeMember, removeGuest, readAll, clearNotifs, savePrefs, savePseudo, savePhoto, saveProgress, myProgress, removeFriend, notify, stop, current: snapshot };
 }

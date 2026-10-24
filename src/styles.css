@@ -626,3 +626,15 @@ details.tagsd > summary .chev{width:14px;height:14px;transition:transform .15s}
 details.tagsd[open] > summary .chev{transform:rotate(90deg)}
 .byav{display:inline-block;vertical-align:-4px;margin-right:7px}
 .byav .av{width:20px;height:20px;font-size:8.5px;border:0}
+.byav{position:relative}
+@media (hover:hover){.byav:hover::after{content:attr(data-name);position:absolute;left:50%;bottom:calc(100% + 3px);transform:translateX(-50%);white-space:nowrap;font:500 10.5px var(--body);color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:1px 6px;pointer-events:none;z-index:2}}
+/* photo de l'auteur à la place du crayon (tâches des autres) */
+.task .pen.byp{border:0;background:none;width:38px;display:grid;place-items:center;padding:0}
+.task .pen.byp .byav{margin:0;vertical-align:0}
+.task .pen.byp .byav .av{width:28px;height:28px;font-size:10.5px}
+.byend{flex:none;align-self:center;display:grid;place-items:center}
+.byend .byav{margin:0}
+.byend .byav .av{width:26px;height:26px;font-size:10px}
+.byav.duo{display:inline-flex}
+.byav.duo .av + .av{margin-left:-12px;box-shadow:0 0 0 2px var(--surface)}
+.task .pen.byp{width:auto;min-width:38px}
