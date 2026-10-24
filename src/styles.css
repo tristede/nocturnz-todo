@@ -638,3 +638,9 @@ details.tagsd[open] > summary .chev{transform:rotate(90deg)}
 .byav.duo{display:inline-flex}
 .byav.duo .av + .av{margin-left:-12px;box-shadow:0 0 0 2px var(--surface)}
 .task .pen.byp{width:auto;min-width:38px}
+/* MARVELVISION : bleu (MCU) / mauve (Hors MCU) */
+.whero .wbar i{background:var(--isfsc)}
+.whero.hors .wbar i{background:var(--contenu)}
+.whero .wstats .wtime.ess b small{color:var(--isfsc)}
+.whero.hors .wstats .wtime.ess b small{color:var(--contenu)}
+.wrow.done .wn{color:var(--muted)}

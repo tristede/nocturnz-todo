@@ -34,7 +34,7 @@ export function startApp(store, data, root){
 
   function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function ckey(s){var k=s.color||s.id;return PAL.indexOf(k)>=0?k:'other';}
-  function col(s){return 'var(--'+ckey(s)+')';}
+  function col(s){return isTplWatch(s)?'var(--other)':'var(--'+ckey(s)+')';}
   // Journée = date locale décalée de 6h (une nuit blanche compte encore pour la veille)
   function dayKey(d){d=new Date((d||new Date()).getTime()-6*3600e3);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   function shift(k,n){var p=k.split('-');var d=new Date(+p[0],p[1]-1,+p[2]+n,12);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
@@ -184,7 +184,8 @@ export function startApp(store, data, root){
   }
   /* ---------- Suivi (watchlist) : progression vers un objectif ---------- */
   // deux niveaux : l'ancien « Mieux de voir » (2) compte comme « À regarder »
-  var IMP={1:{n:'À voir',c:'oasis'},3:{n:'À skip',c:'later'}};
+  // MARVELVISION : base grise, MCU en bleu, Hors MCU en mauve
+  var IMP={1:{n:'À voir',c:'isfsc'},3:{n:'À skip',c:'later'}};
   function impOf(t){var i=t.imp||1;return i===2?1:i;}
   var wf={imp:0,hide:false,grp:'',lm:true,lh:true};try{var wfs=JSON.parse(localStorage.getItem('wf')||'null');if(wfs)wf=wfs;}catch(_){}
   if(wf.imp===2)wf.imp=1;if(wf.lm===undefined)wf.lm=true;if(wf.lh===undefined)wf.lh=true;
@@ -200,7 +201,8 @@ export function startApp(store, data, root){
   function wrow(x,n,ctx){
     var t=x.t,m=[];
     // déjà vu : version compacte, titre + année seulement
-    if(t.d)return '<li class="task wrow done" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
+    var kc=isTplWatch(x.s)?'var(--'+(t.cont?'contenu':'isfsc')+')':col(x.s);
+    if(t.d)return '<li class="task wrow done" id="wr-'+t.id+'" style="--k:'+kc+'">'+
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'" checked aria-label="Marquer comme pas vu : '+esc(t.t)+'">'+
       '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.rel?' <span class="wyear">'+yr(t.rel)+'</span>':'')+'</span></button>'+friendDots(t,ctx)+'</li>';
     if(t.rel)m.push('<span class="reld">'+relDate(t.rel)+'</span>');if(t.fmt)m.push(esc(t.fmt));else if(t.dur)m.push(hm(t.dur));
@@ -210,7 +212,7 @@ export function startApp(store, data, root){
     var pre=wf.lm?(t.pre||[]).map(find2).filter(Boolean):[];
     var links=wf.lh?(t.lk||[]).map(find2).filter(function(y){return y&&impOf(y.t)!==3;}).concat(ctx.back[t.t]||[]):[];
     var chips=function(L,cls){return L.map(function(y){return '<button type="button" class="wlink '+cls+(y.t.d?' seen':'')+'" data-wlink="'+y.t.id+'">'+esc(y.t.t)+'</button>';}).join('');};
-    return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+(links.length||pre.length?' haslinks':'')+'" id="wr-'+t.id+'" style="--k:'+col(x.s)+'">'+
+    return '<li class="task wrow'+(t.d?' done':'')+(t.goal?' goal':'')+(links.length||pre.length?' haslinks':'')+'" id="wr-'+t.id+'" style="--k:'+kc+'">'+
       '<input class="check" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme vu : '+esc(t.t)+'">'+
       '<button class="body" type="button" data-wopen="'+t.id+'"><span class="t"><span class="wn">'+String(n).padStart(2,'0')+'</span>'+esc(t.t)+(t.goal?' <span class="goalb">Objectif</span>':'')+'</span>'+
       '<span class="meta">'+(m.length?'<span>'+m.join(' · ')+'</span>':'')+badge+impTag(t.imp,!!t.cont)+(t.note&&!t.cont?'<span>'+esc(t.note)+'</span>':'')+'</span></button>'+friendDots(t,ctx)+
@@ -307,7 +309,7 @@ export function startApp(store, data, root){
     var linked=D.sent.filter(function(v){return v.type==='watch'&&v.target===sh.tpl;}).map(function(v){return v.toEmail;}).concat(D.invites.filter(function(v){return v.type==='watch'&&v.target===sh.tpl;}).map(function(v){return v.fromEmail;}));
     if(F.length)h+='<div class="set">'+F.map(function(f){var p=f.prog||{};return '<div class="row">'+avatar({n:f.name,ph:f.photo})+'<span class="rl"><b>'+esc(f.name)+'</b><small>'+(p.pct!=null?p.pct+' % du MCU':'pas encore commencé')+'</small></span><button type="button" class="tbtn danger" data-wunfriend="'+esc(f.id)+'">Retirer</button></div>';}).join('')+'</div>';
     if(mine.length)h+='<div class="set">'+mine.map(function(v){return '<div class="row"><span class="rl"><b>'+esc(v.toEmail)+'</b><small>'+(v.status==='declined'?'a refusé':'invitation en attente')+'</small></span><button type="button" class="xbtn sm" data-sh-cancel="'+esc(v.id)+'" aria-label="Annuler l’invitation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button></div>';}).join('')+'</div>';
-    h+=contactChips(F.map(function(f){return f.email;}).concat(linked).filter(Boolean).map(function(e){return e.toLowerCase();}));
+    h+=contactChips(F.map(function(f){return f.uid;}).concat(F.map(function(f){return f.email;}),linked).filter(Boolean).map(function(e){e=String(e);return e.indexOf('@')>=0?e.toLowerCase():e;}));
     h+=(sh.err?'<p class="err">'+esc(sh.err)+'</p>':'')+(sh.sentTo?'<p class="hint flush">Invitation envoyée à '+esc(sh.sentTo)+' : elle apparaît dans sa cloche 🔔.</p>':'');
     sheetRoot.innerHTML=edSheet('Partager',h);
   }
@@ -879,9 +881,9 @@ export function startApp(store, data, root){
         (v.status==='declined'?'<button type="button" class="mini" data-sh-again="'+esc(v.toEmail)+'">Relancer</button>':'')+
         '<button type="button" class="mini danger" data-sh-cancel="'+esc(v.id)+'" aria-label="Annuler l’invitation">×</button></li>';}).join('')+'</ul></div>';
     if(isMember){
-      var already=(sec.members||[]).map(function(u){return ((sec.memberInfo||{})[u]||{}).e;}).concat(mine.map(function(v){return v.toEmail;}));
+      var already=(sec.members||[]).map(function(u){return ((sec.memberInfo||{})[u]||{}).e;}).concat(sec.members||[],mine.map(function(v){return v.toEmail;}));
       if(sh.type==='task'&&tg.x)already=already.concat(Object.keys(tg.x.t.guestInfo||{}).map(function(u){return (tg.x.t.guestInfo[u]||{}).e;}));
-      h+=contactChips(already.filter(Boolean).map(function(e){return e.toLowerCase();}));
+      h+=contactChips(already.filter(Boolean).map(function(e){e=String(e);return e.indexOf('@')>=0?e.toLowerCase():e;}));
       if(sh.err)h+='<p class="err">'+esc(sh.err)+'</p>';
       if(sh.sentTo)h+='<p class="hint flush">Invitation envoyée à '+esc(sh.sentTo)+' : elle apparaît dans sa cloche 🔔.</p>';
     }
@@ -890,9 +892,10 @@ export function startApp(store, data, root){
   }
   // Contacts : les personnes avec qui on partage déjà quelque chose, pour les retrouver en un toucher
   // Amis : liens généraux acceptés des deux côtés (gérés dans le Profil) ; c'est avec eux qu'on partage
-  function contacts(){return (D.friends||[]).filter(function(f){return f.tpl==='ami';}).map(function(f){return {e:String(f.email||'').toLowerCase(),n:f.name,ph:f.photo,id:f.id};})
+  function contacts(){return (D.friends||[]).filter(function(f){return f.tpl==='ami';}).map(function(f){return {e:String(f.email||'').toLowerCase(),n:f.name,ph:f.photo,id:f.id,u:f.uid};})
     .filter(function(c){return c.e;}).sort(function(a,b){return (a.n||a.e).localeCompare(b.n||b.e);});}
-  function contactChips(skip){var L=contacts().filter(function(c){return skip.indexOf(c.e)<0;});
+  // skip : emails ou comptes (uid) à ne pas proposer
+  function contactChips(skip){var L=contacts().filter(function(c){return skip.indexOf(c.e)<0&&skip.indexOf(c.u)<0;});
     if(!L.length)return '<section class="sec"><h4 class="sec-h">Amis</h4><p class="hint flush">'+(contacts().length?'Tous tes amis sont déjà là.':'Pas encore d’amis.')+'</p><button type="button" class="linkb left" data-addfriend>Ajouter un ami</button></section>';
     var picks=(sh&&sh.picks)||[];
     return '<section class="sec"><h4 class="sec-h">Amis</h4><div class="chipscroll repo">'+L.map(function(c){var nm=c.n||c.e.split('@')[0],on=picks.indexOf(c.e)>=0;
@@ -1012,7 +1015,7 @@ export function startApp(store, data, root){
         '<button type="button" class="row addtag" data-tag-add="'+kk[0]+'"><span class="plusc">+</span><span class="rl">Ajouter un tag</span></button>';}).join('')+'</div></details>';
     h+='<details class="sec tagsd"><summary class="sec-h">Notifications'+CHEV+'</summary><div class="set">'+NOTIF.map(function(n){
       return '<label class="row" for="nf-'+n[0]+'"><span class="rl"><b>'+n[1]+'</b><small>'+n[2]+'</small></span><input type="checkbox" class="toggle" id="nf-'+n[0]+'" data-nf="'+n[0]+'"'+(P.notif[n[0]]?' checked':'')+'></label>';}).join('')+'</div></details>';
-    h+='<details class="sec tagsd"'+(sh.openTools?' open':'')+'><summary class="sec-h">Outils'+CHEV+'</summary><div class="set">'+
+    h+='<details class="sec tagsd" open><summary class="sec-h">Outils'+CHEV+'</summary><div class="set">'+
       '<label class="row" for="tool-watch"><span class="rl"><b>Suivis de films et séries</b><small>Progression vers un objectif, temps restant, historique</small></span><input type="checkbox" class="toggle" id="tool-watch"'+(P.tools.watch?' checked':'')+'></label>'+
       (P.tools.watch?watchButtons():'')+'</div></details>';
     h+='<section class="sec"><h4 class="sec-h">Invitations<span>'+(C.admin?'Illimitées':C.used+' / 2')+'</span></h4><div class="set">'+
@@ -1035,7 +1038,7 @@ export function startApp(store, data, root){
     img.onerror=function(){toast('Image illisible');};img.src=url;});
   document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('[data-ph-reset]')){store.savePhoto('').then(function(){toast('Photo Google reprise');render();if(sh&&sh.kind==='account')renderAccount();});}});
   function watchButtons(){return '<button type="button" class="row" data-m-watch=""><span class="plusc">+</span><span class="rl"><b>Nouveau suivi</b><small>Liste vide à remplir</small></span></button>'+
-    TEMPLATES.map(function(t){return '<button type="button" class="row" data-m-watch="'+t.id+'"><span class="plusc">★</span><span class="rl"><b>Modèle : '+esc(t.name)+'</b><small>'+esc(t.desc)+'</small></span></button>';}).join('');}
+    TEMPLATES.map(function(t){return '<button type="button" class="row" data-m-watch="'+t.id+'"><span class="plusc">★</span><span class="rl"><b>Modèle : '+esc(t.name)+'</b></span></button>';}).join('');}
   document.addEventListener('change',function(e){var k=e.target.getAttribute&&e.target.getAttribute('data-nf');if(!k||!sh||sh.kind!=='account')return;var P=prefs();P.notif[k]=e.target.checked;savePrefs(P);});
   document.addEventListener('change',function(e){if(sh&&sh.kind==='account'&&e.target.id==='tool-watch')sh.openTools=true;});
   document.addEventListener('change',function(e){if(sh&&sh.kind==='account'&&e.target.id==='tool-watch'){var P=prefs();P.tools.watch=e.target.checked;savePrefs(P);renderAccount();}});
