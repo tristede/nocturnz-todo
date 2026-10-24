@@ -4,6 +4,7 @@ import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import { getAuth } from 'firebase-admin/auth';
 
 initializeApp();
 const db = getFirestore();
@@ -17,6 +18,11 @@ export const push = onDocumentCreated({ document: 'notifs/{id}', region: 'europe
   const u = user.exists ? user.data() : {};
   const tokens = Array.isArray(u.pushTokens) ? u.pushTokens.filter((t) => typeof t === 'string').slice(0, 20) : [];
   if (!tokens.length) return;
+  // réservé aux comptes listés dans config/club.push (emails)
+  const club = await db.doc('config/club').get();
+  const allowed = ((club.exists && club.data().push) || []).map((e) => String(e).trim().toLowerCase());
+  const email = u.email || (await getAuth().getUser(n.to).catch(() => ({}))).email;
+  if (!allowed.includes(String(email || '').trim().toLowerCase())) return;
   const kind = KINDS[n.kind] || 'list';
   if (((u.prefs || {}).notif || {})[kind] === false) return;
   const res = await getMessaging().sendEachForMulticast({

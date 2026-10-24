@@ -22,10 +22,10 @@ export function startApp(store, data, root){
   document.body.appendChild(sheetEl);
   // Redessiner une feuille déjà ouverte garde sa position de défilement et ne rejoue pas l'animation d'ouverture
   var sheetRoot={
-    set innerHTML(h){var o=sheetEl.querySelector('.sheet'),top=o?o.scrollTop:0,open=o?[].map.call(o.querySelectorAll('details[open] > summary'),function(x){return x.textContent;}):[];
+    set innerHTML(h){var o=sheetEl.querySelector('.sheet'),top=o?o.scrollTop:0,open=o?[].map.call(o.querySelectorAll('details[open] > summary'),function(x){return x.firstChild.textContent;}):[];
       sheetEl.innerHTML=h;var n=sheetEl.querySelector('.sheet');
-      if(o&&n&&o.style.height){n.style.height=o.style.height;n.style.maxHeight='none';}
-      if(o&&n){n.classList.add('noanim');[].forEach.call(n.querySelectorAll('details > summary'),function(x){if(open.indexOf(x.textContent)>=0)x.parentNode.open=true;});n.scrollTop=top;}},
+      if(o&&n&&o.style.height){n.style.height=o.style.height;n.style.maxHeight='none';n.style.minHeight='0';}
+      if(o&&n){n.classList.add('noanim');[].forEach.call(n.querySelectorAll('details > summary'),function(x){if(open.indexOf(x.firstChild.textContent)>=0)x.parentNode.open=true;});n.scrollTop=top;}},
     get innerHTML(){return sheetEl.innerHTML;},
     querySelector:function(q){return sheetEl.querySelector(q);},
     querySelectorAll:function(q){return sheetEl.querySelectorAll(q);}
@@ -352,16 +352,23 @@ export function startApp(store, data, root){
     if(t.from)return '<span>'+hh(t.from)+' → '+hh(t.to)+'</span>';
     return '';
   }
-  function lrow(x,N,day){
+  function lrow(x,N,day,copy){
     var t=x.t,st=lstate(t,N,day);st.day0=day;
     var gone=st.k==='past'&&!t.d&&!t.sk,kc=col(x.s);
     var meta=lwhen(t,st,N)+(t.price?'<span class="lprice">'+esc(t.price)+'</span>':'')+(t.bk&&st.k!=='past'?'<a class="wlink pre" href="'+esc(t.bk)+'" target="_blank" rel="noopener">Réserver</a>':'')+(t.note&&!(t.d||t.sk)?'<span>'+esc(t.note)+'</span>':'');
-    return '<li class="task wrow lrow'+(t.d?' done':'')+(t.sk?' skipped':'')+(gone?' gone':'')+(st.k==='open'?' open':'')+'" id="wr-'+t.id+'" style="--k:'+kc+'">'+
-      '<input class="check'+(t.sk?' skip':'')+'" type="checkbox" id="w-'+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="'+(t.sk?'Retirer le skip : ':t.d?'Marquer comme skip : ':'Marquer comme fait : ')+esc(t.t)+'">'+
+    return '<li class="task wrow lrow'+(t.pin?' pinned':'')+(t.d?' done':'')+(t.sk?' skipped':'')+(gone?' gone':'')+(st.k==='open'?' open':'')+'" id="'+(copy?'sr-':'wr-')+t.id+'" style="--k:'+kc+'">'+
+      '<input class="check'+(t.sk?' skip':'')+'" type="checkbox" id="'+(copy?'ws-':'w-')+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="'+(t.sk?'Retirer le skip : ':t.d?'Marquer comme skip : ':'Marquer comme fait : ')+esc(t.t)+'">'+
       '<div class="body"><span class="t">'+(t.code?'<span class="wn">'+esc(t.code)+'</span>':'')+esc(t.t)+(t.d||t.sk?'':lwarn(st))+'</span>'+(t.d||t.sk||!meta?'':'<span class="meta">'+meta+'</span>')+'</div>'+
       (t.d||t.sk?'':ring(st))+friendDots(t,ctx0)+'</li>';
   }
   var ctx0={fr:[]};
+  function togglePin(id){var x=find(id);if(!x)return;if(x.t.pin)delete x.t.pin;else x.t.pin=true;toast(x.t.pin?'Ajoutée à ta sélection':'Retirée de ta sélection');try{navigator.vibrate&&navigator.vibrate(10);}catch(_){}change();}
+  document.addEventListener('contextmenu',function(e){var r=e.target.closest&&e.target.closest('.lrow');if(!r||e.target.closest('a,input'))return;e.preventDefault();togglePin(r.id.slice(3));});
+  var lpin=null;
+  document.addEventListener('pointerdown',function(e){if(e.button>0)return;var r=e.target.closest&&e.target.closest('.lrow');if(!r||e.target.closest('a,input'))return;
+    lpin={x:e.clientX,y:e.clientY,t:setTimeout(function(){lpin=null;togglePin(r.id.slice(3));},550)};});
+  document.addEventListener('pointermove',function(e){if(lpin&&Math.hypot(e.clientX-lpin.x,e.clientY-lpin.y)>8){clearTimeout(lpin.t);lpin=null;}});
+  ['pointerup','pointercancel'].forEach(function(k){document.addEventListener(k,function(){if(lpin){clearTimeout(lpin.t);lpin=null;}});});
   function viewLive(s,every,tpl){
     var L=every.filter(function(x){return x.s===s;}),N=bxNow(),day=tpl.live.day,close=toMin(tpl.live.close||'22:00');
     // horaires, prix, liens et repères viennent toujours du modèle (à jour même pour un suivi créé avant)
@@ -372,8 +379,11 @@ export function startApp(store, data, root){
     var LA=L;L=L.filter(function(x){return !catHidden(x.t.cat);});
     var tplId=tpl.id,fr=D.friends.filter(function(f){return f.tpl===tplId;});ctx0={fr:fr};
     var done=L.filter(function(x){return x.t.d&&!x.t.sk;}),spent=done.reduce(function(a,x){return a+price(x.t.price);},0);
+    // première ouverture de la journée (séance ou activité)
+    var open0=close;L.forEach(function(x){var k=x.t.from||(x.t.slots&&x.t.slots[0]);if(k)open0=Math.min(open0,toMin(k));});
+    var m2h=function(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');};
     var dd=Math.round((new Date(day+'T12:00')-new Date(N.day+'T12:00'))/864e5);
-    var sub=dd>1?'Dans '+dd+' jours':dd===1?'Demain':dd===0?(N.min<close?'Ferme à '+hh(tpl.live.close)+' · encore '+dur2(close-N.min):'Le parc est fermé'):'C’est fini';
+    var sub=dd>1?'Dans '+dd+' jours':dd===1?'Demain':dd===0?(N.min<open0?'Ouvre à '+hh(m2h(open0))+' · ferme à '+hh(tpl.live.close):N.min<close?'Ferme à '+hh(tpl.live.close)+' · encore '+dur2(close-N.min):'Le parc est fermé'):'C’est fini';
     var dayTxt=new Date(day+'T12:00').toLocaleDateString('fr-BE',{weekday:'short',day:'numeric',month:'short'});
     // bientôt : les 3 prochains débuts (séances ou ouvertures)
     var up=[];L.forEach(function(x){if(x.t.d||x.t.sk)return;var st=lstate(x.t,N,day);if(st.k==='soon')up.push({x:x,st:st});});
@@ -401,6 +411,9 @@ export function startApp(store, data, root){
     var LC=[['frissons','Frissons','urgent'],['famille','Famille','later'],['enfants','Enfants','later']];
     if(!wf.lc)wf.lc={frissons:true};var showCat=function(x){return !att||!x.t.cat||!!wf.lc[x.t.cat];};
     if(att)h+='<div class="chipscroll wfilters">'+LC.map(function(c){return '<button type="button" class="chipb tg lcf" style="--c:var(--'+c[2]+')" data-wf-lc="'+c[0]+'" aria-pressed="'+!!wf.lc[c[0]]+'">'+c[1]+' <span class="n">'+LA.filter(function(x){return x.t.cat===c[0];}).length+'</span></button>';}).join('')+'</div>';
+    // ma sélection : les activités épinglées (appui long sur une ligne), dans leur propre carte au nom de la personne
+    var PL=L.filter(function(x){return x.t.pin&&side(x.g)===att&&showCat(x);});
+    if(PL.length)h+='<section class="card notes lsel"><div class="grp-h ed"><span class="gname ro">'+esc(ME.name||'Ma sélection')+'</span><span class="gsum">'+PL.filter(function(x){return x.t.d&&!x.t.sk;}).length+'/'+PL.filter(function(x){return !x.t.sk;}).length+'</span></div><ul>'+PL.map(function(x){return lrow(x,N,day,true);}).join('')+'</ul></section>';
     h+='<section class="card notes">';
     s.groups.forEach(function(g,gi){
       var GL=L.filter(function(x){return x.g===g&&showCat(x);});if(!GL.length||side(g)!==att)return;
@@ -688,11 +701,21 @@ export function startApp(store, data, root){
   // Modales sur téléphone : la poignée se tire vers le haut ou le bas pour régler la hauteur ;
   // un geste rapide vers le bas (ou tirer très bas) ferme la modale
   var sheetDrag=null;
-  document.addEventListener('pointerdown',function(e){var handle=e.target.closest&&e.target.closest('.sheet .grab');
-    if(!handle||!sh||e.button!==0||window.matchMedia('(min-width:700px)').matches)return;
-    var el=handle.closest('.sheet');
-    sheetDrag={id:e.pointerId,y:e.clientY,x:e.clientX,el:el,h:el.getBoundingClientRect().height,v:0,ly:e.clientY,lt:e.timeStamp};el.classList.add('dragging');
-    try{handle.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault();});
+  // zone de prise large : tout le haut de la modale (poignée, titre) ; ailleurs, glisser vers le bas quand le contenu est tout en haut
+  var sheetMaybe=null;
+  function startSheetDrag(el,e){sheetDrag={id:e.pointerId,y:e.clientY,x:e.clientX,el:el,h:el.getBoundingClientRect().height,v:0,ly:e.clientY,lt:e.timeStamp};el.classList.add('dragging');
+    try{el.setPointerCapture(e.pointerId);}catch(_){}}
+  document.addEventListener('pointerdown',function(e){var el=e.target.closest&&e.target.closest('.sheet');
+    if(!el||!sh||e.button!==0||window.matchMedia('(min-width:700px)').matches)return;
+    var top=e.clientY-el.getBoundingClientRect().top<76||!!e.target.closest('.grab');
+    if(e.target.closest('input,textarea,select,[contenteditable]')||(!top&&e.target.closest('button,a,label')))return;
+    if(top&&!e.target.closest('button,a,input')){startSheetDrag(el,e);e.preventDefault();return;}
+    if(el.scrollTop<=0)sheetMaybe={el:el,id:e.pointerId,x:e.clientX,y:e.clientY};});
+  document.addEventListener('pointermove',function(e){var m=sheetMaybe;if(!m||e.pointerId!==m.id||sheetDrag)return;var dx=e.clientX-m.x,dy=e.clientY-m.y;
+    if(Math.hypot(dx,dy)<8)return;sheetMaybe=null;if(dy>0&&dy>Math.abs(dx)*1.2&&m.el.scrollTop<=0){startSheetDrag(m.el,{pointerId:e.pointerId,clientX:m.x,clientY:m.y,timeStamp:e.timeStamp});}},true);
+  ['pointerup','pointercancel'].forEach(function(k){document.addEventListener(k,function(){sheetMaybe=null;});});
+  // au doigt : tant qu'on peut encore baisser la modale, on empêche le défilement de la page de prendre le geste
+  document.addEventListener('touchmove',function(e){if(sheetDrag||(sheetMaybe&&e.touches[0]&&e.touches[0].clientY>sheetMaybe.y&&sheetMaybe.el.scrollTop<=0))e.preventDefault();},{passive:false});
   function sheetMax(){return window.innerHeight*0.92;}
   // la modale peut être redessinée pendant le geste : on suit toujours celle qui est affichée
   function dragEl(d){if(!d.el.isConnected){var n=sheetRoot.querySelector('.sheet');if(n){d.el=n;n.classList.add('dragging');}}return d.el;}
@@ -700,8 +723,8 @@ export function startApp(store, data, root){
     var dy=e.clientY-d.y,min=Math.min(d.h,window.innerHeight*0.3),nh=Math.min(sheetMax(),d.h-dy);
     // vitesse lissée, pour reconnaître un geste rapide vers le bas
     var dt=Math.max(1,e.timeStamp-d.lt);d.v=d.v*0.6+((e.clientY-d.ly)/dt)*0.4;d.ly=e.clientY;d.lt=e.timeStamp;
-    if(nh>=min){d.el.style.height=nh+'px';d.el.style.maxHeight='none';d.el.style.translate='';}
-    else{d.el.style.height=min+'px';d.el.style.maxHeight='none';d.el.style.translate='0 '+(min-nh)+'px';}
+    if(nh>=min){d.el.style.height=nh+'px';d.el.style.maxHeight='none';d.el.style.minHeight='0';d.el.style.translate='';}
+    else{d.el.style.height=min+'px';d.el.style.maxHeight='none';d.el.style.minHeight='0';d.el.style.translate='0 '+(min-nh)+'px';}
     e.preventDefault();});
   function finishSheetDrag(e){var d=sheetDrag;if(!d||e.pointerId!==d.id)return;sheetDrag=null;dragEl(d);d.el.classList.remove('dragging');
     var dy=e.clientY-d.y,nh=d.h-dy;
@@ -1249,7 +1272,17 @@ export function startApp(store, data, root){
       (VAPID_KEY?'<label class="row" for="nf-push"><span class="rl"><b>Sur cet appareil</b><small id="push-sub">…</small></span><input type="checkbox" class="toggle" id="nf-push" data-push disabled></label>':'')+NOTIF.map(function(n){
       return '<label class="row" for="nf-'+n[0]+'"><span class="rl"><b>'+n[1]+'</b><small>'+n[2]+'</small></span><input type="checkbox" class="toggle" id="nf-'+n[0]+'" data-nf="'+n[0]+'"'+(P.notif[n[0]]?' checked':'')+'></label>';}).join('')+'</div></details>';
     h+='<details class="sec tagsd" open><summary class="sec-h">Modèles</summary><div class="set">'+watchButtons(P)+'</div></details>';
-    h+='<section class="sec"><h4 class="sec-h">Parrainages<span>'+(C.admin?'Illimitées':C.used+' / 2')+'</span></h4><div class="set">'+
+    // admin : un encart « Membres » déroulant (tout le club, droit aux notifs push) qui remplace celui des parrainages
+    if(C.admin){var PU=C.push||[],MB=C.members||[];
+      h+='<details class="sec tagsd mbrs"><summary class="sec-h">Membres<span>'+MB.filter(function(v){return v.joined;}).length+CHEV+'</span></summary><div class="set">'+
+        '<div class="row inv"><input type="email" id="club-email" inputmode="email" autocomplete="off" placeholder="Inviter par email" value="'+esc(sh.clubEmail||'')+'"><button type="button" class="tbtn" data-club-invite>Inviter</button></div>'+
+        (sh.clubSent?'<div class="row note"><span class="rl"><b>'+esc(sh.clubSent)+'</b><small>Peut maintenant entrer</small></span><button type="button" class="tbtn" data-club-copy>Copier le lien</button></div>':'')+
+        MB.map(function(v){var em=String(v.email||'').toLowerCase(),on=PU.indexOf(em)>=0;
+          return '<div class="row mb"><span class="rl"><b>'+esc(v.name||(em===ME.email?ME.name:v.email))+(em===ME.email?' (moi)':'')+'</b><small>'+esc(v.email)+(v.joined?'':' · en attente')+'</small></span>'+
+            (v.joined?'<label class="mbpush" title="Notifications push"><span>Notifs</span><input type="checkbox" class="toggle" data-mb-push="'+esc(em)+'"'+(on?' checked':'')+'></label>':
+              (v.by===ME.uid?'<button type="button" class="xbtn sm" data-club-cancel="'+esc(v.email)+'" aria-label="Annuler le parrainage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button>':'<span class="pill">En attente</span>'))+'</div>';}).join('')+
+        '</div>'+(sh.clubErr?'<p class="err">'+esc(sh.clubErr)+'</p>':'')+'</details>';
+    }else h+='<section class="sec"><h4 class="sec-h">Parrainages<span>'+(C.admin?'Illimitées':C.used+' / 2')+'</span></h4><div class="set">'+
       C.invited.map(function(v){return '<div class="row"><span class="rl"><b>'+esc(v.name||v.email)+'</b>'+(v.name?'<small>'+esc(v.email)+'</small>':'')+'</span><span class="pill'+(v.joined?' ok':'')+'">'+(v.joined?'Membre':'En attente')+'</span>'+
         (!v.joined?'<button type="button" class="xbtn sm" data-club-cancel="'+esc(v.email)+'" aria-label="Annuler le parrainage"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button>':'')+'</div>';}).join('')+
       (C.left>0?'<div class="row inv"><input type="email" id="club-email" inputmode="email" autocomplete="off" placeholder="Inviter par email" value="'+esc(sh.clubEmail||'')+'"><button type="button" class="tbtn" data-club-invite>Inviter</button></div>':
@@ -1276,8 +1309,10 @@ export function startApp(store, data, root){
   function watchButtons(P){return TEMPLATES.map(function(t){return '<label class="row" for="watch-tpl-'+t.id+'"><span class="plusc">★</span><span class="rl"><b>'+esc(t.name)+'</b><small>'+(P.watchTemplates[t.id]?'Activé':'Désactivé')+'</small></span><input type="checkbox" class="toggle" id="watch-tpl-'+t.id+'" data-watch-template="'+t.id+'"'+(P.watchTemplates[t.id]?' checked':'')+'></label>';}).join('');}
   // Notifications push : état de cet appareil (l'autorisation se demande au toucher, obligatoire sur iPhone)
   var PUSHTXT={on:'Activées',off:'Désactivées',blocked:'Bloquées dans les réglages du téléphone',install:'Ajoute d’abord l’appli à l’écran d’accueil (Partager → Sur l’écran d’accueil)',unsupported:'Pas disponible sur ce navigateur'};
-  function refreshPush(){pushState().then(function(s){var i=sheetRoot.querySelector('#nf-push'),t=sheetRoot.querySelector('#push-sub');if(!i||!t)return;
+  function refreshPush(){Promise.all([pushState(),store.canPush()]).then(function(r){var s=r[0],i=sheetRoot.querySelector('#nf-push'),t=sheetRoot.querySelector('#push-sub');if(!i||!t)return;
+    if(!r[1]){i.closest('.row').hidden=true;return;}
     i.checked=s==='on';i.disabled=s!=='on'&&s!=='off';t.textContent=PUSHTXT[s]||'';});}
+  document.addEventListener('change',function(e){var em=e.target.getAttribute&&e.target.getAttribute('data-mb-push');if(!em)return;store.setPush(em,e.target.checked);toast(e.target.checked?'Notifications push autorisées':'Notifications push retirées');});
   document.addEventListener('change',function(e){if(!e.target.hasAttribute||!e.target.hasAttribute('data-push'))return;var i=e.target;i.disabled=true;
     (i.checked?enablePush(store.savePushToken).then(function(){toast('Notifications activées sur cet appareil');})
       :disablePush(store.removePushToken).then(function(){toast('Notifications désactivées sur cet appareil');}))

@@ -728,3 +728,16 @@ body.mapv-on{overflow:hidden}
 body.tabdragging,body.tabdragging *{cursor:grabbing!important;user-select:none;-webkit-user-select:none}
 .lwarn{display:inline-block;width:16px;height:16px;margin-left:4px;vertical-align:-2px}
 .lring.warn b{color:var(--urgent)}
+.lrow.pinned .t{font-weight:800}
+.lrow{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.mbrs .row.mb{gap:10px}
+.mbpush{display:flex;align-items:center;gap:8px;flex:none;font-size:12px;color:var(--muted)}
+/* appui long sur un onglet (iPhone) : ouvre le menu au lieu de sélectionner le texte */
+.tabs,.tab,.tab *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* modales sans pied fixe (Amis, partage…) : marge sous le dernier bouton, au-dessus de la barre d'accueil de l'iPhone */
+.sheet.ed:not(:has(.ed-foot)){padding-bottom:calc(22px + env(safe-area-inset-bottom,0px))}
+/* sur téléphone, une modale courte ne reste pas collée en bas de l'écran */
+@media (max-width:699px){.sheet{min-height:min(52vh,92vh)}}
+/* pas de barre de défilement visible (page, modales, listes) */
+html,body,.sheet{scrollbar-width:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar,.sheet::-webkit-scrollbar{display:none;width:0;height:0}

@@ -180,6 +180,13 @@ await t('ami : Zoé accepte (ID par expéditeur)', async () => { const b = write
 await t('ami : pas de lien avec un tiers via la demande d’un autre', () => assertFails(setDoc(doc(zoe, 'friends/ami__' + pr('adam', 'zoe')), { tpl: 'ami', users: ['adam', 'zoe'], names: {} })));
 await t('ami : l’amitié ne donne pas accès à la progression d’un suivi', () => assertFails(getDoc(doc(lea, 'progress/adam__' + T))));
 
+// Admin : liste des membres et droit aux notifications push
+await t('admin : liste tous les membres', () => assertSucceeds(getDocs(collection(admin, 'access'))));
+await t('membre : ne liste pas tous les membres', () => assertFails(getDocs(collection(sara, 'access'))));
+await t('admin : autorise les push à un membre', () => assertSucceeds(updateDoc(doc(admin, 'config/club'), { push: ['sara@x.test'] })));
+await t('admin : ne change pas les admins depuis l’appli', () => assertFails(updateDoc(doc(admin, 'config/club'), { admins: ['admin@x.test', 'sara@x.test'] })));
+await t('membre : ne s’autorise pas les push', () => assertFails(updateDoc(doc(sara, 'config/club'), { push: ['sara@x.test'] })));
+
 await env.cleanup();
 console.log(`\n${pass} réussis, ${fail} échoués`);
 process.exit(fail ? 1 : 0);

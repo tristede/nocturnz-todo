@@ -39,12 +39,16 @@ service cloud.firestore {
 
     match /config/{id} {
       allow get: if signed();
+      // un admin coche les membres qui ont droit aux notifications push (champ push = liste d'emails) ; le reste se gère depuis la console
+      allow update: if id == 'club' && isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['push'])
+        && request.resource.data.push is list && request.resource.data.push.size() <= 300;
     }
 
     match /access/{email} {
       // un membre peut vérifier si quelqu'un est déjà membre (avant de partager) ; on peut toujours lire sa propre carte
       allow get: if signed() || (verified() && email == myEmail());
-      allow list: if signed() && resource.data.by == me();
+      allow list: if signed() && (resource.data.by == me() || isAdmin());
       // inviter au club : 2 cartes max par membre (compteur quota incrémenté dans le même lot), illimité pour un admin
       allow create: if signed()
         && email == email.lower() && email.matches('^[^@/ ]+@[^@/ ]+[.][^@/ ]+$')

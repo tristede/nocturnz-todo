@@ -12,7 +12,7 @@ export const normEmail = (e) => String(e || '').trim().toLowerCase();
 // tu/tn = qui a posé le tag (uid, pseudo) : les tags sont propres à chaque compte
 // eb = qui a modifié le texte d'une tâche créée par quelqu'un d'autre
 // rel/dur/imp/goal/vh = titres d'un suivi (date de sortie, durée, importance, objectif, dates de visionnage)
-const TASK_FIELDS = ['t', 'd', 'sk', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh', 'fmt', 'cont', 'ph', 'lk', 'pre', 'eb', 'slots', 'from', 'to', 'code', 'nuit', 'bk', 'cat'];
+const TASK_FIELDS = ['t', 'd', 'sk', 'p', 'due', 'at', 'hist', 'rep', 'lvl', 'price', 'link', 'note', 'tu', 'tn', 'rel', 'dur', 'imp', 'goal', 'vh', 'fmt', 'cont', 'ph', 'lk', 'pre', 'eb', 'slots', 'from', 'to', 'code', 'nuit', 'bk', 'cat', 'pin'];
 export const SHARED = { todo: '__shared_todo', buy: '__shared_buy' };
 
 function stable(v) {
@@ -52,7 +52,7 @@ export function watchAccess(user, cb) {
 export function createStore(user, { onData, onStatus, admin }) {
   const me = { uid: user.uid, email: normEmail(user.email), name: user.displayName || normEmail(user.email).split('@')[0], photo: user.photoURL || '' };
   const cats = new Map(), catTasks = new Map(), guestTasks = new Map(), catUnsubs = new Map();
-  let profile = null, profileLoaded = false, invites = [], sent = [], notifs = [], club = [], quota = 0;
+  let profile = null, profileLoaded = false, invites = [], sent = [], notifs = [], club = [], quota = 0, members = [], pushList = [];
   const unsubs = [];
   let emitTimer = null;
   const emit = () => { clearTimeout(emitTimer); emitTimer = setTimeout(() => onData(snapshot()), 0); };
@@ -85,6 +85,14 @@ export function createStore(user, { onData, onStatus, admin }) {
   unsubs.push(onSnapshot(query(collection(db, 'invites'), where('from', '==', me.uid)), (qs) => {
     sent = qs.docs.map((d) => ({ id: d.id, ...d.data() })); emit();
   }, err));
+  // admin : tous les membres du club et la liste des comptes autorisés aux notifications push
+  if (admin) {
+    unsubs.push(onSnapshot(collection(db, 'access'), (qs) => {
+      members = qs.docs.map((d) => d.data()).sort((a, b) => String(a.name || a.email).localeCompare(String(b.name || b.email), 'fr'));
+      emit();
+    }, err));
+    unsubs.push(onSnapshot(doc(db, 'config', 'club'), (c) => { pushList = ((c.exists() && c.data().push) || []).map(normEmail); emit(); }, err));
+  }
   unsubs.push(onSnapshot(query(collection(db, 'access'), where('by', '==', me.uid)), (qs) => {
     club = qs.docs.map((d) => d.data()).filter((x) => x.email !== me.email).sort((a, b) => (a.createdAt?.toMillis?.() || Date.now()) - (b.createdAt?.toMillis?.() || Date.now()));
     emit();
@@ -179,7 +187,7 @@ export function createStore(user, { onData, onStatus, admin }) {
       invites, sent, notifs, prefs: (profile && profile.prefs) || {},
       friends: [...friends.values()].map((f) => { const pg = friendProg.get(f.uid + '__' + f.tpl) || null, nm = (f.names || {})[f.uid] || {};
         return { id: f.id, tpl: f.tpl, uid: f.uid, email: nm.e || '', name: (pg && pg.name) || nm.n || 'Ami', photo: (pg && pg.photo) || nm.ph || '', prog: pg }; }),
-      club: { admin: !!admin, invited: club, used: quota, left: admin ? Infinity : Math.max(0, CLUB_MAX - quota) },
+      club: { admin: !!admin, invited: club, used: quota, left: admin ? Infinity : Math.max(0, CLUB_MAX - quota), members, push: pushList },
     };
   }
 
@@ -353,6 +361,12 @@ export function createStore(user, { onData, onStatus, admin }) {
   }
 
   const savePrefs = (prefs) => setDoc(doc(db, 'users', me.uid), { prefs }, { merge: true }).catch(err);
+  // notifications push réservées aux emails listés dans config/club.push (modifiable depuis la console)
+  const setPush = (email, on) => updateDoc(doc(db, 'config', 'club'), { push: on ? arrayUnion(normEmail(email)) : arrayRemove(normEmail(email)) }).catch(err);
+  async function canPush() {
+    try { const c = await getDoc(doc(db, 'config', 'club')); return !!(c.exists() && (c.data().push || []).map(normEmail).includes(normEmail(me.email))); }
+    catch (_) { return false; }
+  }
   // jetons push de mes appareils (lus par la fonction d'envoi, côté serveur)
   async function savePushToken(token, old) {
     await setDoc(doc(db, 'users', me.uid), { pushTokens: arrayUnion(token) }, { merge: true });
@@ -406,5 +420,5 @@ export function createStore(user, { onData, onStatus, admin }) {
   }
 
   function stop() { unsubs.forEach((u) => u()); catUnsubs.forEach((u) => u()); progUnsubs.forEach((u) => u()); }
-  return { me, savePushToken, removePushToken, commit, invite, cancelInvite, memberStatus, clubInvite, cancelClubInvite, accept, decline, removeMember, removeGuest, readAll, clearNotifs, savePrefs, savePseudo, savePhoto, saveProgress, myProgress, removeFriend, notify, stop, current: snapshot };
+  return { me, canPush, setPush, savePushToken, removePushToken, commit, invite, cancelInvite, memberStatus, clubInvite, cancelClubInvite, accept, decline, removeMember, removeGuest, readAll, clearNotifs, savePrefs, savePseudo, savePhoto, saveProgress, myProgress, removeFriend, notify, stop, current: snapshot };
 }
