@@ -54,6 +54,9 @@ export function startApp(store, data, root){
   function byPrio(a,b){return (a.t.d-b.t.d)||(rankT('todo',a.t)-rankT('todo',b.t))||((a.t.due||'9')<(b.t.due||'9')?-1:(a.t.due||'9')>(b.t.due||'9')?1:0);}
 
   /* ---------- Todo : lignes ---------- */
+  // ajouté par quelqu'un d'autre dans une liste partagée : sa petite photo (rien sur les nôtres)
+  function byAv(x){var t=x.t;if(!t.by||t.by===ME.uid)return '';var i=(x.s.memberInfo||{})[t.by]||{};var nm=i.n||t.byName||'';if(!nm&&!i.ph)return '';
+    return '<span class="byav" title="Ajouté par '+esc(nm)+'">'+avatar({n:nm,ph:i.ph})+'</span>';}
   function row(x,o){
     var t=x.t,f=S.focus.indexOf(t.id)>=0,m='';
     if(!t.d)m+=tagSpan(tagFor('todo',t),'pri');
@@ -66,7 +69,7 @@ export function startApp(store, data, root){
       if(nr||lw)m+='<span class="repl">'+(nr?'↻ reportée'+(nr>1?' '+nr+'×':''):'✎')+(lw?' · '+esc(lw):'')+'</span>';}
     return '<li class="task'+(t.d?' done':'')+'" style="--k:'+col(x.s)+'"'+(x.s.virtual?'':' data-drag="t:'+t.id+'"')+'>'+
       '<input class="check" type="checkbox" id="cb-'+(o.pre||'')+t.id+'" data-id="'+t.id+'"'+(t.d?' checked':'')+' aria-label="Marquer comme faite : '+esc(t.t)+'">'+
-      '<button class="body" type="button" data-open="'+t.id+'"><span class="t">'+esc(t.t)+'</span>'+(m?'<span class="meta">'+m+'</span>':'')+'</button>'+
+      '<button class="body" type="button" data-open="'+t.id+'"><span class="t">'+byAv(x)+esc(t.t)+'</span>'+(m?'<span class="meta">'+m+'</span>':'')+'</button>'+
       (t.d?'':'<button type="button" class="pen" data-rep="'+t.id+'" aria-label="Mettre à jour ou reporter : '+esc(t.t)+'" title="Mettre à jour / reporter">✎</button>')+'</li>';
   }
   function list(L,o){return '<ul>'+L.map(function(x){return row(x,o||{});}).join('')+'</ul>';}
@@ -292,13 +295,12 @@ export function startApp(store, data, root){
     if(F.length)h+='<div class="set">'+F.map(function(f){var p=f.prog||{};return '<div class="row">'+avatar({n:f.name,ph:f.photo})+'<span class="rl"><b>'+esc(f.name)+'</b><small>'+(p.pct!=null?p.pct+' % du MCU':'pas encore commencé')+'</small></span><button type="button" class="tbtn danger" data-wunfriend="'+esc(f.id)+'">Retirer</button></div>';}).join('')+'</div>';
     if(mine.length)h+='<div class="set">'+mine.map(function(v){return '<div class="row"><span class="rl"><b>'+esc(v.toEmail)+'</b><small>'+(v.status==='declined'?'a refusé':'invitation en attente')+'</small></span><button type="button" class="xbtn sm" data-sh-cancel="'+esc(v.id)+'" aria-label="Annuler l’invitation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button></div>';}).join('')+'</div>';
     h+=contactChips(F.map(function(f){return f.email;}).concat(linked).filter(Boolean).map(function(e){return e.toLowerCase();}));
-    h+='<div class="set"><div class="row inv"><input type="email" id="ws-email" inputmode="email" autocomplete="off" placeholder="Inviter par email" value="'+esc(sh.email)+'"><button type="button" class="tbtn" data-ws-invite>Inviter</button></div></div>'+
-      (sh.err?'<p class="err">'+esc(sh.err)+'</p>':'')+(sh.sentTo?'<p class="hint flush">Invitation envoyée à '+esc(sh.sentTo)+' : elle apparaît dans sa cloche 🔔.</p>':'');
+    h+=(sh.err?'<p class="err">'+esc(sh.err)+'</p>':'')+(sh.sentTo?'<p class="hint flush">Invitation envoyée à '+esc(sh.sentTo)+' : elle apparaît dans sa cloche 🔔.</p>':'');
     sheetRoot.innerHTML=edSheet('Partager',h);
   }
-  function wsInvite(){var e=sheetRoot.querySelector('#ws-email'),email=(e?e.value:'').trim().toLowerCase();sh.email=email;sh.err='';sh.sentTo='';
-    if(!/^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/.test(email)){sh.err='Adresse email invalide';renderWShare();return;}
-    store.memberStatus(email).then(function(m){if(m==='none'){sh.err=email+' n’a pas de compte sur l’appli.';renderWShare();return;}
+  function wsInvite(em){var email=String(em||'').trim().toLowerCase();sh.email=email;sh.err='';sh.sentTo='';
+    if(!/^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/.test(email)){sh.err='Adresse email invalide';renderWShare();return Promise.resolve();}
+    return store.memberStatus(email).then(function(m){if(m==='none'){sh.err=email+' n’a pas de compte sur l’appli.';renderWShare();return;}
       return store.invite('watch',sh.tpl,email,sh.tplName,'todo').then(function(){sh.sentTo=email;sh.email='';renderWShare();});})
       .catch(function(er){sh.err=er.message||'Échec';renderWShare();});}
   function openFriend(id){sh={kind:'friend',id:id};renderFriend();}
@@ -423,7 +425,7 @@ export function startApp(store, data, root){
     if(b.note)m+='<span>'+esc(b.note)+'</span>';
     return '<li class="task'+(b.d?' done':'')+'" style="--k:'+col(x.s)+'"'+(x.s.virtual?'':' data-drag="b:'+b.id+'"')+'>'+
       '<input class="check" type="checkbox" id="bc-'+b.id+'" data-bid="'+b.id+'"'+(b.d?' checked':'')+' aria-label="Marquer comme acheté : '+esc(b.t)+'">'+
-      '<button class="body" type="button" data-bopen="'+b.id+'"><span class="t">'+esc(b.t)+'</span>'+(m?'<span class="meta">'+m+'</span>':'')+'</button>'+
+      '<button class="body" type="button" data-bopen="'+b.id+'"><span class="t">'+byAv(x)+esc(b.t)+'</span>'+(m?'<span class="meta">'+m+'</span>':'')+'</button>'+
       (b.d?'':(function(){var tg=tagFor('buy',b)||{n:'Tag',c:'later'};return '<button type="button" class="tagbtn" style="color:var(--'+tg.c+')" data-bcycle="'+b.id+'" aria-label="Tag : '+esc(tg.n)+' (toucher pour changer)">'+esc(tg.n)+'</button>';})())+
       '<button type="button" class="pricetag'+(b.price?'':' empty')+'" data-bopen="'+b.id+'" aria-label="Prix">'+(b.price?esc(b.price):'+ €')+'</button></li>';
   }
@@ -504,8 +506,8 @@ export function startApp(store, data, root){
   function tagChips(k,attr,cur){return '<div class="chipscroll">'+keepChip(k,attr,cur)+tagList(k).map(function(tg){return '<button type="button" class="chipb tg" style="--c:var(--'+tg.c+')" data-'+attr+'="'+tg.id+'" aria-pressed="'+(cur===tg.id)+'">'+esc(tg.n)+'</button>';}).join('')+'</div>';}
   function wrap(title,inner){return '<div class="backdrop" data-close></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title"><div class="grab"></div><h3 id="sh-title">'+title+'</h3>'+inner+'</div>';}
   function closeSheet(){sh=null;sheetRoot.innerHTML='';var f=app.querySelector('.fab');if(f)f.focus();flush();}
-  function rerender(){if(sh.kind==='wshare')renderWShare();else if(sh.kind==='friend')renderFriend();else if(sh.kind==='watch')renderWatch();else if(sh.kind==='share')renderShare();else if(sh.kind==='bell')renderBell();else if(sh.kind==='account')renderAccount();else if(sh.kind==='task')renderTask();else if(sh.kind==='buy')renderBuy();else if(sh.kind==='rep')renderRep();else renderManage();}
-  function sync(){if(!sh)return;if(['rep','share','bell','account','watch','wshare','friend'].indexOf(sh.kind)>=0)return;if(sh.kind==='manage')syncManage();else{syncCommon();if(sh.kind==='task'){var d=sheetRoot.querySelector('#sh-date');if(d)sh.due=d.value;var f=sheetRoot.querySelector('#sh-focus');if(f)sh.focus=f.checked;}
+  function rerender(){if(sh.kind==='addfriend')renderAddFriend();else if(sh.kind==='friends')renderFriends();else if(sh.kind==='wshare')renderWShare();else if(sh.kind==='friend')renderFriend();else if(sh.kind==='watch')renderWatch();else if(sh.kind==='share')renderShare();else if(sh.kind==='bell')renderBell();else if(sh.kind==='account')renderAccount();else if(sh.kind==='task')renderTask();else if(sh.kind==='buy')renderBuy();else if(sh.kind==='rep')renderRep();else renderManage();}
+  function sync(){if(!sh)return;if(['rep','share','bell','account','watch','wshare','friend','friends','addfriend'].indexOf(sh.kind)>=0)return;if(sh.kind==='manage')syncManage();else{syncCommon();if(sh.kind==='task'){var d=sheetRoot.querySelector('#sh-date');if(d)sh.due=d.value;var f=sheetRoot.querySelector('#sh-focus');if(f)sh.focus=f.checked;}
     else ['price','link','note'].forEach(function(k){var el=sheetRoot.querySelector('#bs-'+k);if(el)sh[k]=el.value;});}}
 
   /* Tâche */
@@ -758,7 +760,7 @@ export function startApp(store, data, root){
     var pc=JSON.stringify(d.prefs||{})!==JSON.stringify(D.prefs||{});
     D=d;if(!same)S=d.S;if(pc){applyPrefs();same=false;}
     if(!same||soc)render();
-    if(sh&&['share','bell','account','wshare','friend'].indexOf(sh.kind)>=0)rerender();
+    if(sh&&['share','bell','account','wshare','friend','friends','addfriend'].indexOf(sh.kind)>=0)rerender();
   }
   function flush(){setTimeout(function(){if(pending&&!busy())apply(store.current());},60);}
   document.addEventListener('focusout',flush);
@@ -867,41 +869,61 @@ export function startApp(store, data, root){
       var already=(sec.members||[]).map(function(u){return ((sec.memberInfo||{})[u]||{}).e;}).concat(mine.map(function(v){return v.toEmail;}));
       if(sh.type==='task'&&tg.x)already=already.concat(Object.keys(tg.x.t.guestInfo||{}).map(function(u){return (tg.x.t.guestInfo[u]||{}).e;}));
       h+=contactChips(already.filter(Boolean).map(function(e){return e.toLowerCase();}));
-      h+='<div class="field"><label class="lbl" for="sh-email">Inviter par email (compte Google)</label><div class="invrow"><input type="email" id="sh-email" inputmode="email" autocomplete="email" placeholder="prenom@gmail.com" value="'+esc(sh.email)+'"><button type="button" class="btn" data-sh-invite>Inviter</button></div>'+
-        (sh.err?'<p class="err">'+esc(sh.err)+'</p>':'')+'</div>';
-      if(sh.needClub)h+='<div class="sent warn"><p><b>'+esc(sh.needClub)+'</b> n’a pas de compte sur l’appli. '+(D.club.admin?'Tu peux l’inviter.':D.club.left>0?'Tu peux l’inviter : il te reste '+D.club.left+' invitation'+(D.club.left>1?'s':'')+'.':'Tu as utilisé tes 2 invitations. Vérifie l’adresse, ou demande à quelqu’un d’autre de l’inviter.')+'</p>'+
-        (D.club.admin||D.club.left>0?'<div class="actions"><button type="button" class="btn ghost" data-sh-noclub>Annuler</button><button type="button" class="btn" data-sh-club>Inviter et partager</button></div>':'')+'</div>';
-      if(sh.sentTo&&sh.pendingNote)h+='<p class="hint flush">'+esc(sh.pendingNote)+'</p>';
-      if(sh.sentTo)h+='<div class="sent"><p><b>Invitation prête pour '+esc(sh.sentTo)+'.</b> Elle s’affichera dans sa cloche 🔔 dès que la personne ouvre l’appli avec cette adresse. Envoie-lui le lien :</p><div class="actions"><button type="button" class="btn ghost" data-sh-copy>Copier le lien</button>'+(navigator.share?'<button type="button" class="btn ghost" data-sh-send>Envoyer…</button>':'')+'</div></div>';
+      if(sh.err)h+='<p class="err">'+esc(sh.err)+'</p>';
+      if(sh.sentTo)h+='<p class="hint flush">Invitation envoyée à '+esc(sh.sentTo)+' : elle apparaît dans sa cloche 🔔.</p>';
     }
     h+='<div class="actions"><span class="spacer"></span><button type="button" class="btn" data-close>Fermer</button></div>';
     sheetRoot.innerHTML=wrap((sh.type==='cat'?'Partager « ':'Partager la tâche « ')+esc(tg.name)+' »',h);
-    if(first){var e=sheetRoot.querySelector('#sh-email');if(e&&matchMedia('(pointer:fine)').matches)e.focus();}
   }
   // Contacts : les personnes avec qui on partage déjà quelque chose, pour les retrouver en un toucher
-  function contacts(){var out={},add=function(e,n,ph){e=String(e||'').toLowerCase();if(!e||e===ME.email)return;var o=out[e]||(out[e]={e:e,n:'',ph:''});if(n&&!o.n)o.n=n;if(ph&&!o.ph)o.ph=ph;};
-    S.sections.concat(S.buy).forEach(function(c){Object.keys(c.memberInfo||{}).forEach(function(u){var i=c.memberInfo[u]||{};add(i.e,i.n,i.ph);});});
-    (D.friends||[]).forEach(function(f){add(f.email,f.name,f.photo);});
-    (D.sent||[]).forEach(function(v){if(v.status==='accepted')add(v.toEmail);});
-    ((D.club&&D.club.invited)||[]).forEach(function(v){if(v.joined)add(v.email,v.name);});
-    return Object.keys(out).map(function(k){return out[k];}).sort(function(a,b){return (a.n||a.e).localeCompare(b.n||b.e);});}
-  // répertoire : juste les photos ; le pseudo au survol, et au toucher on sélectionne puis on confirme
-  function contactChips(skip){var L=contacts().filter(function(c){return skip.indexOf(c.e)<0;});if(!L.length)return '';
-    var pick=sh&&sh.pick?L.filter(function(c){return c.e===sh.pick;})[0]:null;
-    return '<section class="sec"><h4 class="sec-h">Amis</h4><div class="chipscroll repo">'+L.map(function(c){var nm=c.n||c.e.split('@')[0],on=pick&&pick.e===c.e;
+  // Amis : liens généraux acceptés des deux côtés (gérés dans le Profil) ; c'est avec eux qu'on partage
+  function contacts(){return (D.friends||[]).filter(function(f){return f.tpl==='ami';}).map(function(f){return {e:String(f.email||'').toLowerCase(),n:f.name,ph:f.photo,id:f.id};})
+    .filter(function(c){return c.e;}).sort(function(a,b){return (a.n||a.e).localeCompare(b.n||b.e);});}
+  function contactChips(skip){var L=contacts().filter(function(c){return skip.indexOf(c.e)<0;});
+    if(!L.length)return '<section class="sec"><h4 class="sec-h">Amis</h4><p class="hint flush">'+(contacts().length?'Tous tes amis sont déjà là.':'Pas encore d’amis.')+'</p><button type="button" class="linkb left" data-addfriend>Ajouter un ami</button></section>';
+    var picks=(sh&&sh.picks)||[];
+    return '<section class="sec"><h4 class="sec-h">Amis</h4><div class="chipscroll repo">'+L.map(function(c){var nm=c.n||c.e.split('@')[0],on=picks.indexOf(c.e)>=0;
       return '<span class="repo-it'+(on?' on':'')+'"><button type="button" class="repo-av" data-contact="'+esc(c.e)+'" data-name="'+esc(nm)+'" aria-label="'+esc(nm)+'">'+avatar({n:nm,ph:c.ph})+'</button>'+
-        (on?'<button type="button" class="repo-go" data-contact-go="'+esc(c.e)+'" aria-label="Inviter '+esc(nm)+'">Inviter</button>':'')+'</span>';}).join('')+'</div></section>';}
+        (on?'<i class="repo-ok" aria-hidden="true">✓</i>':'')+'<small class="repo-nm">'+esc(nm)+'</small></span>';}).join('')+'</div>'+
+      '<div class="repo-actions"><button type="button" class="btn" data-contact-send'+(picks.length?'':' disabled')+'>Inviter'+(picks.length?' ('+picks.length+')':'')+'</button><button type="button" class="linkb" data-addfriend>Ajouter un ami</button></div></section>';}
+  /* ---------- Amis : ajouter, gérer ---------- */
+  function openAddFriend(back){sh={kind:'addfriend',email:'',err:'',ok:'',back:back||null};renderAddFriend(true);}
+  function renderAddFriend(first){
+    var pend=D.sent.filter(function(v){return v.type==='friend'&&v.status!=='accepted';}),h='';
+    h+='<div class="set"><div class="row inv"><input type="email" id="af-email" inputmode="email" autocomplete="off" placeholder="Email de ton ami" value="'+esc(sh.email)+'"><button type="button" class="tbtn" data-af-send>Envoyer</button></div></div>';
+    if(sh.err)h+='<p class="err">'+esc(sh.err)+'</p>';if(sh.ok)h+='<p class="hint flush">'+esc(sh.ok)+'</p>';
+    if(pend.length)h+='<section class="sec"><h4 class="sec-h">Demandes envoyées</h4><div class="set">'+pend.map(function(v){return '<div class="row"><span class="rl"><b>'+esc(v.toEmail)+'</b><small>'+(v.status==='declined'?'refusée':'en attente')+'</small></span><button type="button" class="xbtn sm" data-sh-cancel="'+esc(v.id)+'" aria-label="Annuler la demande"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button></div>';}).join('')+'</div></section>';
+    sheetRoot.innerHTML=edSheet('Ajouter un ami',h);
+    if(first&&matchMedia('(pointer:fine)').matches){var i=sheetRoot.querySelector('#af-email');if(i)i.focus();}
+  }
+  function sendFriend(){var i=sheetRoot.querySelector('#af-email'),em=(i?i.value:'').trim().toLowerCase();sh.email=em;sh.err='';sh.ok='';
+    if(!/^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/.test(em)){sh.err='Adresse email invalide';renderAddFriend();return;}
+    if(contacts().some(function(c){return c.e===em;})){sh.err='Vous êtes déjà amis.';renderAddFriend();return;}
+    store.memberStatus(em).then(function(m){if(m==='none'){sh.err=em+' n’a pas de compte sur l’appli.';renderAddFriend();return;}
+      return store.invite('friend','ami',em,'ami','todo').then(function(){sh.ok='Demande envoyée à '+em+' : elle apparaît dans sa cloche 🔔.';sh.email='';renderAddFriend();});})
+      .catch(function(er){sh.err=er.message||'Échec';renderAddFriend();});}
+  function openFriends(){sh={kind:'friends'};renderFriends();}
+  function renderFriends(){var L=contacts(),h='';
+    h+=L.length?'<div class="set">'+L.map(function(c){return '<div class="row">'+avatar({n:c.n||c.e,ph:c.ph})+'<span class="rl"><b>'+esc(c.n||c.e.split('@')[0])+'</b><small>'+esc(c.e)+'</small></span><button type="button" class="tbtn danger" data-unfriend="'+esc(c.id)+'">Retirer</button></div>';}).join('')+'</div>':'<p class="hint flush">Pas encore d’amis.</p>';
+    h+='<div class="set"><button type="button" class="row center" data-addfriend>Ajouter un ami</button></div>';
+    sheetRoot.innerHTML=edSheet('Amis',h);}
+  document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-addfriend],[data-af-send],[data-unfriend],[data-friends]');if(!b)return;
+    if(b.hasAttribute('data-addfriend')){openAddFriend();return;}
+    if(b.hasAttribute('data-friends')){openFriends();return;}
+    if(b.hasAttribute('data-af-send')){sendFriend();return;}
+    if(b.hasAttribute('data-unfriend')){if(!b.dataset.c){b.dataset.c=1;b.textContent='Sûr ?';return;}store.removeFriend(b.getAttribute('data-unfriend')).then(function(){toast('Ami retiré');});return;}});
+  document.addEventListener('keydown',function(e){if(sh&&sh.kind==='addfriend'&&e.target.id==='af-email'&&e.key==='Enter'){e.preventDefault();sendFriend();}});
   function inviteMsg(){var tg=shareTarget();return 'Je t’ai invité·e sur « '+(tg?tg.name:'ma liste')+' » dans ma Todo. Ouvre '+shareLink()+' et connecte-toi avec '+sh.sentTo+' : l’invitation est dans la cloche 🔔';}
   // Partager avec quelqu'un hors du club = l'inviter aussi au club (1 des 2 places), après confirmation
-  function doInvite(email,withClub){
-    var tg=shareTarget();if(!tg)return;var e=sheetRoot.querySelector('#sh-email');email=(email||(e?e.value:'')).trim().toLowerCase();sh.email=email;sh.err='';sh.needClub='';
-    if(!email)return;
+  function doInvite(email,isFriend){
+    var tg=shareTarget();if(!tg)return Promise.resolve();email=String(email||'').trim().toLowerCase();var withClub=false;sh.email=email;sh.err='';sh.needClub='';
+    if(!email)return Promise.resolve();
     var kind=S.buy.indexOf(tg.sec)>=0||(tg.x&&S.buy.indexOf(tg.x.s)>=0)?'buy':'todo';
     var btn=sheetRoot.querySelector('[data-sh-invite]');if(btn){btn.disabled=true;btn.textContent='Envoi…';}
     var go=function(){return store.invite(sh.type,sh.id,email,tg.name,kind);};
-    if(!/^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/.test(email)){sh.err='Adresse email invalide';renderShare();return;}
+    if(!/^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/.test(email)){sh.err='Adresse email invalide';renderShare();return Promise.resolve();}
     sh.pendingNote='';
-    (withClub?store.clubInvite(email).then(go):store.memberStatus(email).then(function(m){
+    return (isFriend?go():withClub?store.clubInvite(email).then(go):store.memberStatus(email).then(function(m){
       if(m==='none'){sh.needClub=email;return 'ask';}
       if(m==='pending')sh.pendingNote=email+' est invité·e mais ne s’est pas encore connecté·e : le partage l’attendra.';
       return go();}))
@@ -915,7 +937,7 @@ export function startApp(store, data, root){
   function renderBell(){
     var h='';
     if(D.invites.length)h+='<div class="field"><span class="lbl">Invitations</span><ul class="people">'+D.invites.map(function(v){
-      return '<li class="inv">'+avatar({n:v.fromName})+'<span class="pp"><b>'+esc(v.fromName||v.fromEmail)+'</b><small>'+(v.type==='watch'?'t’invite à suivre « '+esc(v.targetName)+' » ensemble':'t’invite sur '+(v.type==='cat'?(v.kind==='buy'?'la wishlist':'la liste'):'la tâche')+' « '+esc(v.targetName)+' »')+'</small></span>'+
+      return '<li class="inv">'+avatar({n:v.fromName})+'<span class="pp"><b>'+esc(v.fromName||v.fromEmail)+'</b><small>'+(v.type==='friend'?'veut t’ajouter en ami':v.type==='watch'?'t’invite à suivre « '+esc(v.targetName)+' » ensemble':'t’invite sur '+(v.type==='cat'?(v.kind==='buy'?'la wishlist':'la liste'):'la tâche')+' « '+esc(v.targetName)+' »')+'</small></span>'+
         '<span class="invb"><button type="button" class="mini" data-inv-no="'+esc(v.id)+'">Refuser</button><button type="button" class="mini ok" data-inv-ok="'+esc(v.id)+'">Accepter</button></span></li>';}).join('')+'</ul></div>';
     h+='<div class="field"><span class="lbl">Activité</span>'+(D.notifs.length?'<ul class="notes-l">'+D.notifs.slice(0,40).map(function(n){
       return '<li class="'+(n.read?'':'new')+'"><span>'+esc(n.text)+'</span><small>'+ago(n.createdAt)+'</small></li>';}).join('')+'</ul>':'<p class="hint flush">Rien pour l’instant. Ici s’afficheront les invitations et ce que font les personnes avec qui tu partages.</p>')+'</div>';
@@ -964,9 +986,13 @@ export function startApp(store, data, root){
       '<p class="sec-note">Visible par les personnes avec qui tu partages. Leurs tâches taguées apparaissent sous leur pseudo.</p>';
     h+='<section class="sec"><h4 class="sec-h">Apparence</h4><div class="themegrid" role="radiogroup" aria-label="Thème">'+THEMES.map(function(t){
       return '<button type="button" class="thm t-'+t[0]+'" role="radio" data-theme-set="'+t[0]+'" aria-checked="'+(P.theme===t[0])+'"><span class="prev"><i></i><i></i></span><span>'+t[1]+'</span></button>';}).join('')+'</div></section>';
-    h+='<section class="sec"><h4 class="sec-h">Tags</h4><div class="set">'+[['todo','Todo'],['buy','Wishlist']].map(function(kk){
+    var FL=contacts();
+    h+='<section class="sec"><h4 class="sec-h">Amis<span>'+FL.length+'</span></h4><div class="set">'+
+      (FL.length?'<button type="button" class="row" data-friends><span class="avstack">'+FL.slice(0,6).map(function(c){return avatar({n:c.n||c.e,ph:c.ph});}).join('')+'</span><span class="rl">Gérer les amis</span>'+CHEV+'</button>':'')+
+      '<button type="button" class="row" data-addfriend><span class="plusc">+</span><span class="rl">Ajouter un ami</span></button></div></section>';
+    h+='<details class="sec tagsd"'+(sh.edit?' open':'')+'><summary class="sec-h">Tags'+CHEV+'</summary><div class="set">'+[['todo','Todo'],['buy','Wishlist']].map(function(kk){
       return '<div class="row sub">'+kk[1]+'</div>'+P.tags[kk[0]].map(function(t,i){return tagRow(kk[0],t,i,P);}).join('')+
-        '<button type="button" class="row addtag" data-tag-add="'+kk[0]+'"><span class="plusc">+</span><span class="rl">Ajouter un tag</span></button>';}).join('')+'</div></section>';
+        '<button type="button" class="row addtag" data-tag-add="'+kk[0]+'"><span class="plusc">+</span><span class="rl">Ajouter un tag</span></button>';}).join('')+'</div></details>';
     h+='<section class="sec"><h4 class="sec-h">Outils</h4><div class="set">'+
       '<label class="row" for="tool-watch"><span class="rl"><b>Suivis de films et séries</b><small>Progression vers un objectif, temps restant, historique</small></span><input type="checkbox" class="toggle" id="tool-watch"'+(P.tools.watch?' checked':'')+'></label>'+
       (P.tools.watch?watchButtons():'')+'</div></section>';
@@ -1042,17 +1068,20 @@ export function startApp(store, data, root){
     if(has('sh-send')){navigator.share({title:'Invitation Todo',text:inviteMsg()}).catch(function(){});return;}
     if(has('inv-ok')||has('inv-no')){var v=D.invites.filter(function(x){return x.id===(A('inv-ok')||A('inv-no'));})[0];if(!v)return;b.disabled=true;
       (has('inv-ok')?store.accept(v).then(function(){toast('Ajouté : '+v.targetName);
+        if(v.type==='friend')return;
         if(v.type==='watch'){var P=prefs();if(!P.tools.watch){P.tools.watch=true;savePrefs(P);}var have=S.sections.filter(function(c){var t=tplOf(c);return isWatch(c)&&t&&t.id===v.target;})[0];
           if(have){mode='todo';tab=have.id;closeSheet();render();}else{var tp=TEMPLATES.filter(function(t){return t.id===v.target;})[0];if(tp){closeSheet();createWatch(tp);}}return;}if(v.type==='cat'){if(v.kind==='buy'){mode='buy';btab=v.target;}else{mode='todo';tab=v.target;}}}):store.decline(v)).catch(fail);return;}
     if(has('bell-clear')){store.clearNotifs();return;}
     if(has('install')&&installEvt){installEvt.prompt();installEvt.userChoice.finally(function(){installEvt=null;if(sh)renderAccount();});return;}
     if(has('logout')){store.signOut();return;}
   });
-  document.addEventListener('click',function(e){if(!sh)return;var b=e.target.closest&&e.target.closest('[data-contact],[data-contact-go]');if(!b)return;
-    if(b.hasAttribute('data-contact')){var em0=b.getAttribute('data-contact');sh.pick=sh.pick===em0?'':em0;if(sh.kind==='share')renderShare();else if(sh.kind==='wshare')renderWShare();return;}
-    var em=b.getAttribute('data-contact-go');sh.pick='';
-    if(sh.kind==='share'){doInvite(em);return;}
-    if(sh.kind==='wshare'){var i=sheetRoot.querySelector('#ws-email');if(i)i.value=em;wsInvite();return;}});
+  document.addEventListener('click',function(e){if(!sh)return;var b=e.target.closest&&e.target.closest('[data-contact],[data-contact-send]');if(!b)return;
+    var redraw=function(){if(sh.kind==='share')renderShare();else if(sh.kind==='wshare')renderWShare();};
+    if(b.hasAttribute('data-contact')){var em0=b.getAttribute('data-contact'),P=sh.picks=sh.picks||[],k=P.indexOf(em0);if(k>=0)P.splice(k,1);else P.push(em0);redraw();return;}
+    // envoyer à tous les amis sélectionnés, un par un
+    var list=(sh.picks||[]).slice();if(!list.length)return;sh.picks=[];b.disabled=true;b.textContent='Envoi…';
+    var kind=sh.kind,next=function(){var em=list.shift();if(!em){if(sh&&sh.kind===kind){sh.sentTo='';redraw();}toast('Invitation'+(n>1?'s':'')+' envoyée'+(n>1?'s':''));return;}
+      (kind==='share'?doInvite(em,true):wsInvite(em)).then(next,next);},n=list.length;next();});
   document.addEventListener('keydown',function(e){if(sh&&sh.kind==='share'&&e.target.id==='sh-email'&&e.key==='Enter'){e.preventDefault();doInvite();}
     if(sh&&sh.kind==='account'&&e.target.id==='club-email'&&e.key==='Enter'){e.preventDefault();var bt=sheetRoot.querySelector('[data-club-invite]');if(bt)bt.click();}});
 

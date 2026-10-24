@@ -101,7 +101,7 @@ export function createStore(user, { onData, onStatus, admin }) {
     qs.forEach((d) => {
       const f = { id: d.id, ...d.data() }, other = (f.users || []).filter((u) => u !== me.uid)[0], key = other + '__' + f.tpl;
       f.uid = other; friends.set(d.id, f); seen.add(d.id);
-      if (other && !progUnsubs.has(key) && !d.metadata.hasPendingWrites) watchProg(key);
+      if (other && f.tpl !== 'ami' && !progUnsubs.has(key) && !d.metadata.hasPendingWrites) watchProg(key);
     });
     [...friends.keys()].forEach((id) => { if (!seen.has(id)) { const f = friends.get(id), key = f.uid + '__' + f.tpl; friends.delete(id); const u = progUnsubs.get(key); if (u) u(); progUnsubs.delete(key); friendProg.delete(key); } });
     emit();
@@ -311,7 +311,7 @@ export function createStore(user, { onData, onStatus, admin }) {
   }
   async function accept(inv) {
     const b = writeBatch(db);
-    if (inv.type === 'watch') {
+    if (inv.type === 'watch' || inv.type === 'friend') {
       const users = [inv.from, me.uid], id = inv.target + '__' + (users[0] < users[1] ? users[0] + '_' + users[1] : users[1] + '_' + users[0]);
       b.set(doc(db, 'friends', id), { tpl: inv.target, users, names: { [inv.from]: { n: inv.fromName || '', e: inv.fromEmail || '' }, [me.uid]: { n: me.name, e: me.email, ph: me.photo } }, createdAt: serverTimestamp() });
     } else if (inv.type === 'cat') {
@@ -320,7 +320,7 @@ export function createStore(user, { onData, onStatus, admin }) {
       b.update(doc(db, 'tasks', inv.target), { guests: arrayUnion(me.uid), ['guestInfo.' + me.uid]: info() });
     }
     b.update(doc(db, 'invites', inv.id), { status: 'accepted', answeredAt: serverTimestamp() });
-    b.set(doc(collection(db, 'notifs')), { to: inv.from, from: me.uid, fromName: me.name, text: me.name + (inv.type === 'watch' ? ' suit « ' + inv.targetName + ' » avec toi' : ' a rejoint « ' + inv.targetName + ' »'), read: false, createdAt: serverTimestamp() });
+    b.set(doc(collection(db, 'notifs')), { to: inv.from, from: me.uid, fromName: me.name, text: me.name + (inv.type === 'friend' ? ' a accepté ta demande d’ami' : inv.type === 'watch' ? ' suit « ' + inv.targetName + ' » avec toi' : ' a rejoint « ' + inv.targetName + ' »'), read: false, createdAt: serverTimestamp() });
     await b.commit();
     if (inv.type === 'cat' && profile) {
       const order = { todo: [], buy: [], ...(profile.order || {}) }, k = inv.kind === 'buy' ? 'buy' : 'todo';

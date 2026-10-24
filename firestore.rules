@@ -137,7 +137,8 @@ service cloud.firestore {
 
     match /invites/{id} {
       function canShare(d) {
-        return d.type == 'watch' ? d.target is string && d.target.size() > 0 && d.target.size() < 60
+        return d.type == 'friend' ? d.target == 'ami'
+          : d.type == 'watch' ? d.target is string && d.target.size() > 0 && d.target.size() < 60
           : d.type == 'cat' ? inCat(d.target)
           : exists(/databases/$(database)/documents/tasks/$(d.target))
             && inCat(get(/databases/$(database)/documents/tasks/$(d.target)).data.catId);
@@ -146,7 +147,7 @@ service cloud.firestore {
       allow create: if signed()
         && request.resource.data.from == me()
         && request.resource.data.status == 'pending'
-        && request.resource.data.type in ['cat', 'task', 'watch']
+        && request.resource.data.type in ['cat', 'task', 'watch', 'friend']
         && request.resource.data.toEmail is string
         && request.resource.data.toEmail == request.resource.data.toEmail.lower()
         && request.resource.data.toEmail != myEmail()
@@ -164,16 +165,18 @@ service cloud.firestore {
       allow delete: if signed() && (resource.data.from == me() || (verified() && resource.data.toEmail == myEmail()));
     }
 
-    // Suivi à plusieurs : chaque lien est une paire ; A–B et A–C n'impliquent rien entre B et C
+    // Amis : chaque lien est une paire acceptée ; A–B et A–C n'impliquent rien entre B et C.
+    // tpl = 'ami' pour l'amitié générale, sinon l'id du modèle de suivi partagé
     match /friends/{id} {
+      function invId(tpl) { return (tpl == 'ami' ? 'friend_' : 'watch_') + tpl + '__' + myEmail(); }
       allow read: if signed() && me() in resource.data.users;
       allow create: if signed()
         && request.resource.data.keys().hasOnly(['tpl', 'users', 'names', 'createdAt'])
         && request.resource.data.users.size() == 2 && me() in request.resource.data.users
         && request.resource.data.users[0] != request.resource.data.users[1]
         && id == request.resource.data.tpl + '__' + pair(request.resource.data.users[0], request.resource.data.users[1])
-        && pendingInvite('watch_' + request.resource.data.tpl + '__' + myEmail())
-        && get(d('invites', 'watch_' + request.resource.data.tpl + '__' + myEmail())).data.from in request.resource.data.users;
+        && pendingInvite(invId(request.resource.data.tpl))
+        && get(d('invites', invId(request.resource.data.tpl))).data.from in request.resource.data.users;
       allow delete: if signed() && me() in resource.data.users;
     }
 

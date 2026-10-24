@@ -170,6 +170,12 @@ await t('suivi : Sara voit ses liens', () => assertSucceeds(getDocs(query(collec
 await t('suivi : Sara arrête de suivre avec Adam', () => assertSucceeds(deleteDoc(doc(sara, 'friends/' + T + '__' + pr('sara', 'adam')))));
 await t('suivi : ensuite Sara ne voit plus Adam', () => assertFails(getDoc(doc(sara, 'progress/adam__' + T))));
 
+// Amis généraux
+await t('ami : demande d’ami', () => assertSucceeds(setDoc(doc(adam, 'invites/friend_ami__lea@x.test'), { type: 'friend', target: 'ami', targetName: 'ami', kind: 'todo', from: 'adam', fromName: 'Adam', toEmail: 'lea@x.test', status: 'pending' })));
+await t('ami : cible invalide refusée', () => assertFails(setDoc(doc(adam, 'invites/friend_x__lea@x.test'), { type: 'friend', target: 'x', targetName: 'x', kind: 'todo', from: 'adam', fromName: 'Adam', toEmail: 'lea@x.test', status: 'pending' })));
+await t('ami : Léa accepte', async () => { const b = writeBatch(lea); b.set(doc(lea, 'friends/ami__' + pr('adam', 'lea')), { tpl: 'ami', users: ['adam', 'lea'], names: {} }); b.update(doc(lea, 'invites/friend_ami__lea@x.test'), { status: 'accepted' }); await assertSucceeds(b.commit()); });
+await t('ami : l’amitié ne donne pas accès à la progression d’un suivi', () => assertFails(getDoc(doc(lea, 'progress/adam__' + T))));
+
 await env.cleanup();
 console.log(`\n${pass} réussis, ${fail} échoués`);
 process.exit(fail ? 1 : 0);

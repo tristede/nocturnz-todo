@@ -608,3 +608,21 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .repo-it.on .repo-av .av{border-color:var(--ink)}
 .repo-go{border:0;background:var(--ink);color:var(--on-ink);border-radius:999px;padding:3px 9px;font-size:11.5px;font-weight:700;line-height:1.2}
 .chipscroll.repo{align-items:flex-start;padding-bottom:4px}
+/* amis : sélection multiple */
+.repo-it{gap:3px;width:56px}
+.repo-ok{position:absolute;top:30px;right:4px;width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--on-ink);font:700 11px/18px var(--body);font-style:normal;text-align:center;box-shadow:0 0 0 2px var(--surface)}
+.repo-nm{font-size:11px;color:var(--muted);max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.repo-it.on .repo-nm{color:var(--ink);font-weight:600}
+.repo-actions{display:flex;align-items:center;gap:14px}
+.repo-actions .btn:disabled{opacity:.4}
+.linkb.left{margin-left:0;justify-self:start}
+.avstack{display:inline-flex;flex:none}
+.avstack .av{width:28px;height:28px;font-size:10px;margin-left:-8px;border:2px solid var(--raise)}
+.avstack .av:first-child{margin-left:0}
+details.tagsd{display:grid;gap:8px}
+details.tagsd > summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+details.tagsd > summary::-webkit-details-marker{display:none}
+details.tagsd > summary .chev{width:14px;height:14px;transition:transform .15s}
+details.tagsd[open] > summary .chev{transform:rotate(90deg)}
+.byav{display:inline-block;vertical-align:-4px;margin-right:7px}
+.byav .av{width:20px;height:20px;font-size:8.5px;border:0}
