@@ -1,12 +1,14 @@
-# Nocturnz Todo
+# Nocturnz/todo
 
-Todo & Wishlist — fait partie de la suite d'outils [Nocturnz](https://nocturnz.xyz).
-Appli web installable (PWA), connexion Google, données Firestore synchronisées entre appareils.
+Todo, Wishlist et suivis de films/séries — fait partie de la suite d'outils [Nocturnz](https://nocturnz.xyz).
+Appli web installable (PWA) sur https://nocturnz-todo.web.app : connexion Google, accès sur invitation, données synchronisées entre appareils.
 
-- Glisser-déposer une tâche vers une autre sous-catégorie ou un onglet de catégorie (souris, ou appui long au doigt)
-- Partager une catégorie ou une seule tâche par email (invitation dans la cloche 🔔 du destinataire)
-- Notifications : invitations, ajouts, tâches terminées dans les listes partagées
-- Import de l'ancienne version (fichier `Todo & Wishlist.html`) depuis « Mon compte »
+- **Todo & Wishlist** : catégories et groupes, tags personnalisables, glisser-déposer (réordonner, changer de groupe ou d'onglet), menu clic droit / appui long sur un onglet, dates, focus du jour, historique.
+- **Partage** entre amis : une liste entière ou une seule tâche, avec la photo de l'ami qui a ajouté ou modifié une tâche.
+- **Amis** : demandes d'ami par email, acceptées dans la cloche 🔔 ; gestion dans le Profil.
+- **Suivis** (outil activable dans le Profil) : progression vers un objectif, temps restant, historique. Modèle **MARVELVISION** : tout le MCU par phase jusqu'à *Avengers : Doomsday*, et une liste parallèle « Hors MCU » (Sony, Fox, Netflix…) avec liens entre titres. Progression visible entre amis qui suivent le même modèle.
+- **Notifications** réglables, thèmes (Auto, Clair, Sombre, Noir), pseudo et photo de profil.
+- Mise à jour automatique de la webapp installée (iPhone compris).
 
 ## Développement
 
@@ -21,4 +23,8 @@ En mode émulateur, `window.__devSignIn('email@x.test', 'Nom')` connecte un comp
 
 ## Mise en ligne
 
-Projet Firebase `nocturnz-todo` (à créer), config publique dans `src/firebaseConfig.js`, puis `npm run deploy`.
+Projet Firebase `nocturnz-todo` (config publique dans `src/firebaseConfig.js`) :
+
+```bash
+npx vite build && firebase deploy --only hosting,firestore:rules --project nocturnz-todo
+```
