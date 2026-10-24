@@ -96,6 +96,7 @@ export function startApp(store, data, root){
     var B=flat(S.buy),bOpen=B.filter(function(x){return !x.t.d;}).length;
     if(['today','all'].concat(S.sections.filter(watchVisible).map(function(s){return s.id;})).indexOf(tab)<0)tab='today';
     if(['all'].concat(S.buy.map(function(s){return s.id;})).indexOf(btab)<0)btab='all';
+    setTheme();
     var foc=focusList(today),focOpen=foc.filter(function(x){return !x.t.d;}).length;
     var h='<header class="top"><div class="top-in"><div class="brand"><h1><span class="h-pre">Nocturnz/</span>'+(mode==='buy'?'wishlist':'todo')+'</h1><div class="right"><span class="status" id="status">'+esc(status)+'</span>'+
       '<button type="button" class="iconb bell" data-bell aria-label="Notifications'+(unread()?' ('+unread()+' nouvelles)':'')+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>'+(unread()?'<i class="badge">'+unread()+'</i>':'')+'</button>'+
@@ -1238,10 +1239,13 @@ export function startApp(store, data, root){
     return o;
   }
   function applyPrefs(){
-    var P=prefs(),r=document.documentElement;
-    if(P.theme==='auto')delete r.dataset.theme;else r.dataset.theme=P.theme;
+    var P=prefs();setTheme();
     try{localStorage.setItem('theme',P.theme);}catch(_){}
   }
+  // un modèle peut imposer son thème quand son onglet est ouvert (Ibilaw → Noir / rouge), sans changer le réglage
+  function setTheme(){var P=prefs(),r=document.documentElement,t=P.theme;
+    if(mode==='todo'){var cur=S.sections.filter(function(s){return s.id===tab;})[0],tp=cur&&isWatch(cur)&&tplOf(cur);if(tp&&tp.theme)t=tp.theme;}
+    if(t==='auto')delete r.dataset.theme;else if(r.dataset.theme!==t)r.dataset.theme=t;}
   function savePrefs(P){D.prefs=P;applyPrefs();render();store.savePrefs(P);}
   function openAccount(){sh={kind:'account',edit:''};renderAccount();}
   var CHEV='<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';

@@ -176,13 +176,14 @@ export const TEMPLATES = [
   // Horaires, numéros et 🌙 d'après le plan officiel Ibilaw 2026 (colonne du 25/10) ; zones d'après walibi.be.
   // slots = séances · from/to = ouvert de… à… · price = prix affiché · code = repère du plan
   // nuit  = ouvert jusqu'à la fermeture de nuit 🌙 · bk = lien de réservation
-  // cat   = frissons / famille / enfants (comme sur le plan) · map = plan du parc (fichier dans public/maps, gardé hors ligne)
+  // cat   = frissons / famille / enfants (comme sur le plan) · theme = thème appliqué quand l'onglet est ouvert · map = plan du parc (fichier dans public/maps, gardé hors ligne)
   {
     id: 'ibilaw-2026',
     name: 'Ibilaw 2026',
     desc: 'Walibi Halloween, dimanche 25 octobre 2026 : maisons hantées, spectacles et attractions en temps réel, avec les prix.',
     color: 'urgent',
     live: { day: '2026-10-25', close: '22:00' },
+    theme: 'rouge',
     map: '/maps/ibilaw-2026.jpg',
     removed: ['Speedy (coupe-file)'],
     groups: [
