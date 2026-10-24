@@ -64,7 +64,8 @@ export function createStore(user, { onData, onStatus, admin }) {
     if (profile && profile.pseudo) me.name = profile.pseudo;
     if (profile && profile.photo !== undefined) me.photo = profile.photo || user.photoURL || '';
     if (!s.exists() && !s.metadata.fromCache && !profileLoaded) bootstrap();
-    profileLoaded = true; emit();
+    if (!s.metadata.fromCache || s.exists()) profileLoaded = true;
+    emit();
   }, err));
   // includeMetadataChanges : on n'écoute les tâches d'une catégorie qu'une fois celle-ci enregistrée côté serveur
   unsubs.push(onSnapshot(query(collection(db, 'cats'), where('members', 'array-contains', me.uid)), { includeMetadataChanges: true }, (qs) => {
@@ -168,9 +169,13 @@ export function createStore(user, { onData, onStatus, admin }) {
       if (shared.groups[0].tasks.length) secs.push(shared);
       return secs;
     };
+    const S = { sections: build('todo'), buy: build('buy'), focus: ((profile && profile.focus) || []).slice() };
+    // ids présents dans cet état : commit() ne supprimera que parmi eux
+    Object.defineProperty(S, '__ids', { value: new Set([...T.keys()]), enumerable: false });
+    Object.defineProperty(S, '__cats', { value: new Set([...cats.keys()]), enumerable: false });
     return {
       me, ready: profileLoaded && !!profile,
-      S: { sections: build('todo'), buy: build('buy'), focus: ((profile && profile.focus) || []).slice() },
+      S,
       invites, sent, notifs, prefs: (profile && profile.prefs) || {},
       friends: [...friends.values()].map((f) => { const pg = friendProg.get(f.uid + '__' + f.tpl) || null, nm = (f.names || {})[f.uid] || {};
         return { id: f.id, tpl: f.tpl, uid: f.uid, email: nm.e || '', name: (pg && pg.name) || nm.n || 'Ami', photo: (pg && pg.photo) || nm.ph || '', prog: pg }; }),
@@ -200,6 +205,7 @@ export function createStore(user, { onData, onStatus, admin }) {
           if (s.type) data.type = s.type;
           if (s.tpl) data.tpl = s.tpl;
           b.set(doc(db, 'cats', s.id), data); n++;
+          if (S.__cats) S.__cats.add(s.id);
           cats.set(s.id, { id: s.id, ...data, createdAt: null });
         } else if (cur.name !== s.name || (cur.color || '') !== (s.color || '') || stable(cur.groups || []) !== stable(groups)) {
           b.update(doc(db, 'cats', s.id), { name: s.name, color: s.color || 'other', groups, updatedAt: serverTimestamp() }); n++;
@@ -216,11 +222,12 @@ export function createStore(user, { onData, onStatus, admin }) {
         const cur = T.get(t.id);
         const catId = s.virtual ? (cur && cur.catId) : s.id, groupId = s.virtual ? (cur && cur.groupId) : g.id;
         if (!catId) return;
-        const data = { ...pick(t), kind, catId, groupId, o: i, by: cur ? cur.by : me.uid, byName: cur ? (cur.byName || '') : me.name };
+        const data = { ...pick(t), kind, catId, groupId, o: s.virtual && cur ? cur.o : i, by: cur ? cur.by : me.uid, byName: cur ? (cur.byName || '') : me.name };
         if (cur) { if (cur.guests) data.guests = cur.guests; if (cur.guestInfo) data.guestInfo = cur.guestInfo; data.createdAt = cur.createdAt || null; }
-        else { data.guests = []; data.createdAt = serverTimestamp(); }
+        else { data.guests = []; data.createdAt = serverTimestamp(); if (S.__ids) S.__ids.add(t.id); }
         const base = cur ? { ...pick(cur), kind: cur.kind || 'todo', catId: cur.catId, groupId: cur.groupId, o: cur.o } : null;
-        const mine = { ...pick(t), kind, catId, groupId, o: i };
+        const oo = s.virtual && cur ? cur.o : i;
+        const mine = { ...pick(t), kind, catId, groupId, o: oo };
         if (base && stable(base) === stable(mine)) return;
         b.set(doc(db, 'tasks', t.id), data); n++;
         // notifications pour les autres membres d'une catégorie partagée
@@ -233,7 +240,7 @@ export function createStore(user, { onData, onStatus, admin }) {
           if (!cur) txt = me.name + ' a ajouté « ' + t.t + ' »' + where;
           else if (t.d && !cur.d) txt = me.name + (kind === 'buy' ? ' a acheté « ' : ' a terminé « ') + t.t + ' »';
           else if (cur.catId !== catId || cur.groupId !== groupId) txt = me.name + ' a déplacé « ' + t.t + ' »' + where;
-          if (txt) others.forEach((to) => notes.push({ to, text: txt, catId, taskId: t.id }));
+          if (txt) others.forEach((to) => notes.push({ to, text: txt.slice(0, 380), catId, taskId: t.id }));
         }
         const keep = cur || {};
         const merged = { ...data, id: t.id, createdAt: keep.createdAt || null };
@@ -245,8 +252,10 @@ export function createStore(user, { onData, onStatus, admin }) {
     });
 
     // Suppressions
+    const known = S.__ids || null, knownCats = S.__cats || null;
     T.forEach((t, id) => {
       if (seenTasks.has(id)) return;
+      if (known && !known.has(id)) return; // arrivé du serveur après l'état affiché : on n'y touche pas
       if (cats.has(t.catId)) {
         if (!seenCats.has(t.catId)) return; // la catégorie entière part plus bas
         b.delete(doc(db, 'tasks', id)); n++; catTasks.get(t.catId) && catTasks.get(t.catId).delete(id);
@@ -256,6 +265,7 @@ export function createStore(user, { onData, onStatus, admin }) {
     });
     [...cats.values()].forEach((c) => {
       if (seenCats.has(c.id)) return;
+      if (knownCats && !knownCats.has(c.id)) return;
       if (c.owner === me.uid) {
         (catTasks.get(c.id) || new Map()).forEach((_, id) => { b.delete(doc(db, 'tasks', id)); n++; });
         b.delete(doc(db, 'cats', c.id)); n++;
@@ -314,14 +324,14 @@ export function createStore(user, { onData, onStatus, admin }) {
     const b = writeBatch(db);
     if (inv.type === 'watch' || inv.type === 'friend') {
       const users = [inv.from, me.uid], id = inv.target + '__' + (users[0] < users[1] ? users[0] + '_' + users[1] : users[1] + '_' + users[0]);
-      b.set(doc(db, 'friends', id), { tpl: inv.target, users, names: { [inv.from]: { n: inv.fromName || '', e: inv.fromEmail || '' }, [me.uid]: { n: me.name, e: me.email, ph: me.photo } }, createdAt: serverTimestamp() });
+      if (![...friends.values()].some((f) => f.id === id)) b.set(doc(db, 'friends', id), { tpl: inv.target, users, names: { [inv.from]: { n: inv.fromName || '', e: inv.fromEmail || '' }, [me.uid]: { n: me.name, e: me.email, ph: me.photo } }, createdAt: serverTimestamp() });
     } else if (inv.type === 'cat') {
       b.update(doc(db, 'cats', inv.target), { members: arrayUnion(me.uid), ['memberInfo.' + me.uid]: info() });
     } else {
       b.update(doc(db, 'tasks', inv.target), { guests: arrayUnion(me.uid), ['guestInfo.' + me.uid]: info() });
     }
     b.update(doc(db, 'invites', inv.id), { status: 'accepted', answeredAt: serverTimestamp() });
-    b.set(doc(collection(db, 'notifs')), { to: inv.from, kind: 'social', from: me.uid, fromName: me.name, text: me.name + (inv.type === 'friend' ? ' a accepté ta demande d’ami' : inv.type === 'watch' ? ' suit « ' + inv.targetName + ' » avec toi' : ' a rejoint « ' + inv.targetName + ' »'), read: false, createdAt: serverTimestamp() });
+    b.set(doc(collection(db, 'notifs')), { to: inv.from, kind: 'social', from: me.uid, fromName: me.name, text: (me.name + (inv.type === 'friend' ? ' a accepté ta demande d’ami' : inv.type === 'watch' ? ' suit « ' + inv.targetName + ' » avec toi' : ' a rejoint « ' + inv.targetName + ' »')).slice(0, 380), read: false, createdAt: serverTimestamp() });
     await b.commit();
     if (inv.type === 'cat' && profile) {
       const order = { todo: [], buy: [], ...(profile.order || {}) }, k = inv.kind === 'buy' ? 'buy' : 'todo';
